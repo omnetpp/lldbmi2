@@ -9,6 +9,9 @@
 #ifdef __APPLE__
 #include <util.h>
 #endif
+#ifdef UNLINKED
+#include <dlfcn.h>
+#endif
 #include <sys/stat.h>
 #include <sys/timeb.h>
 #include <stdarg.h>
@@ -54,11 +57,17 @@ void help (STATE *pstate)
 
 
 LIMITS limits;
-static STATE state;
+STATE *gpstate;
 
 int
 main (int argc, char **argv, char **envp)
 {
+	#ifdef UNLINKED
+    void *ret = dlopen("liblldb.so", RTLD_NOW | RTLD_GLOBAL);
+	#endif
+
+	gpstate = new STATE();
+
 	int narg;
 	fd_set set;
 	char commandLine[BIG_LINE_MAX];		// data from cdt
@@ -70,10 +79,10 @@ main (int argc, char **argv, char **envp)
 	int  isLog=0;
 	unsigned int logmask=LOG_ALL;
 
-	state.ptyfd = EOF;
-	state.gdbPrompt = "GNU gdb (GDB) 7.7.1\n";
-	snprintf (state.lldbmi2Prompt, NAME_MAX, "lldbmi2 version %s\n", LLDBMI2_VERSION);
-	state.cdtbufferB.grow(BIG_LINE_MAX);
+	gpstate->ptyfd = EOF;
+	gpstate->gdbPrompt = "GNU gdb (GDB) 7.7.1\n";
+	snprintf (gpstate->lldbmi2Prompt, NAME_MAX, "lldbmi2 version %s\n", LLDBMI2_VERSION);
+	gpstate->cdtbufferB.grow(BIG_LINE_MAX);
 
 	limits.frames_max = FRAMES_MAX;
 	limits.children_max = CHILDREN_MAX;
@@ -96,21 +105,21 @@ main (int argc, char **argv, char **envp)
 			isInterpreter = 1;
 		else if (strcmp (argv[narg],"--arch") == 0 ) {
 			if (++narg<argc)
-				strcpy (state.arch, logarg(argv[narg]));
+				strcpy (gpstate->arch, logarg(argv[narg]));
 		}
 		else if (strcmp (argv[narg],"--test") == 0 ) {
 			limits.istest = true;
 			if (++narg<argc)
-				sscanf (logarg(argv[narg]), "%d", &state.test_sequence);
-			if (state.test_sequence)
-				setTestSequence (state.test_sequence);
+				sscanf (logarg(argv[narg]), "%d", &(gpstate->test_sequence));
+			if (gpstate->test_sequence)
+				setTestSequence (gpstate->test_sequence);
 		}
 		else if (strcmp (argv[narg],"--script") == 0 ) {
 			limits.istest = true;
 			if (++narg<argc)
-				strcpy (state.test_script, logarg(argv[narg]));		// no spaces allowed in the name
-			if (state.test_script[0])
-				setTestScript (state.test_script);
+				strcpy (gpstate->test_script, logarg(argv[narg]));		// no spaces allowed in the name
+			if (gpstate->test_script[0])
+				setTestScript (gpstate->test_script);
 		}
 		else if (strcmp (argv[narg],"--log") == 0 )
 			isLog = 1;
@@ -140,10 +149,10 @@ main (int argc, char **argv, char **envp)
 	// create a log filename from program name and open log file
 	if (isLog) {
 		if (limits.istest)
-			setlogfile (state.logfilename, sizeof(state.logfilename), argv[0], "lldbmi2t.log");
+			setlogfile (gpstate->logfilename, sizeof(gpstate->logfilename), argv[0], "lldbmi2t.log");
 		else
-			setlogfile (state.logfilename, sizeof(state.logfilename), argv[0], "lldbmi2.log");
-		openlogfile (state.logfilename);
+			setlogfile (gpstate->logfilename, sizeof(gpstate->logfilename), argv[0], "lldbmi2.log");
+		openlogfile (gpstate->logfilename);
 		setlogmask (logmask);
 	}
 
@@ -151,31 +160,32 @@ main (int argc, char **argv, char **envp)
 	addlog("\n");
 	logprintf (LOG_ARGS, NULL);
 
-	state.envp[0] = NULL;
-	state.envpentries = 0;
-	state.envspointer = state.envs;
+	gpstate->envp[0] = NULL;
+	gpstate->envpentries = 0;
+	gpstate->envspointer = gpstate->envs;
 	const char *wl = "PWD=";		// want to get eclipse project_loc if any
 	int wll = strlen(wl);
 	// copy environment for tested program
 	for (int ienv=0; envp[ienv]; ienv++) {
-		addEnvironment (&state, envp[ienv]);
+		addEnvironment (gpstate, envp[ienv]);
 		if (strncmp(envp[ienv], wl, wll)==0)
-			strcpy (state.project_loc, envp[ienv]+wll);
+			strcpy (gpstate->project_loc, envp[ienv]+wll);
 	}
+
 
 	// return gdb version if --version
 	if (isVersion) {
-		writetocdt (state.gdbPrompt);
-		writetocdt (state.lldbmi2Prompt);
+		writetocdt (gpstate->gdbPrompt);
+		writetocdt (gpstate->lldbmi2Prompt);
 		return EXIT_SUCCESS;
 	}
 	// check if --interpreter mi2
 	else if (!isInterpreter) {
-		help (&state);
+		help (gpstate);
 		return EXIT_FAILURE;
 	}
 
-	initializeSB (&state);
+	initializeSB (gpstate);
 	signal (SIGINT, signalHandler);
 	signal (SIGSTOP, signalHandler);
 
@@ -183,64 +193,74 @@ main (int argc, char **argv, char **envp)
 
 	// main loop
 	FD_ZERO (&set);
-	while (!state.eof) {
-		if (limits.istest)
-			logprintf (LOG_NONE, "main loop\n");
+	while (!gpstate->eof) {
+		logprintf (LOG_INFO, "main loop\n");
 		// get inputs
 		timeout.tv_sec  = 0;
 		timeout.tv_usec = 200000;
 		// check command from CDT
 		FD_SET (STDIN_FILENO, &set);
-		if (state.ptyfd != EOF) {
+		if (gpstate->ptyfd != EOF) {
 			// check data from Eclipse's console
-			FD_SET (state.ptyfd, &set);
-			select(state.ptyfd+1, &set, NULL, NULL, &timeout);
+			FD_SET (gpstate->ptyfd, &set);
+			select(gpstate->ptyfd+1, &set, NULL, NULL, &timeout);
 		}
 		else
 			select(STDIN_FILENO+1, &set, NULL, NULL, &timeout);
-		if (FD_ISSET(STDIN_FILENO, &set) && !state.eof && !limits.istest) {
-			logprintf (LOG_NONE, "read in\n");
+
+		logprintf (LOG_INFO, "select done\n");
+
+		if (FD_ISSET(STDIN_FILENO, &set) && !gpstate->eof && !limits.istest) {
+			logprintf (LOG_INFO, "read in\n");
 			chars = read (STDIN_FILENO, commandLine, sizeof(commandLine)-1);
-			logprintf (LOG_NONE, "read out %d chars\n", chars);
+			logprintf (LOG_INFO, "read out %d chars\n", chars);
 			if (chars>0) {
 				commandLine[chars] = '\0';
-				while (fromCDT (&state,commandLine,sizeof(commandLine)) == MORE_DATA)
+				while (fromCDT (gpstate,commandLine,sizeof(commandLine)) == MORE_DATA) {
+					logprintf (LOG_INFO, "while...\n");
 					commandLine[0] = '\0';
+				}
 			}
 			else
-				state.eof = true;
+				gpstate->eof = true;
 		}
-		if (state.ptyfd!=EOF && state.isrunning) {			// input from user to program
-			if (FD_ISSET(state.ptyfd, &set) && !state.eof && !limits.istest) {
+
+		logprintf (LOG_INFO, "read 1 done\n");
+
+		if (gpstate->ptyfd!=EOF && gpstate->isrunning) {			// input from user to program
+			if (FD_ISSET(gpstate->ptyfd, &set) && !gpstate->eof && !limits.istest) {
 				logprintf (LOG_NONE, "pty read in\n");
-				chars = read (state.ptyfd, consoleLine, sizeof(consoleLine)-1);
+				chars = read (gpstate->ptyfd, consoleLine, sizeof(consoleLine)-1);
 				logprintf (LOG_NONE, "pty read out %d chars\n", chars);
 				if (chars>0) {
 					logprintf (LOG_PROG_OUT, "pty read %d chars\n", chars);
 					consoleLine[chars] = '\0';
-					SBProcess process = state.process;
+					SBProcess process = gpstate->process;
 					if (process.IsValid())
 						process.PutSTDIN (consoleLine, chars);
 				}
 			}
 		}
+
+		logprintf (LOG_INFO, "read 2 done\n");
+
 		// execute test command if test mode
-		if (!state.eof && limits.istest && !state.isrunning) {
+		if (!gpstate->eof && limits.istest && !gpstate->isrunning) {
 			if ((testCommand=getTestCommand ())!=NULL) {
 				snprintf (commandLine, sizeof(commandLine), "%s\n", testCommand);
-				fromCDT (&state, commandLine, sizeof(commandLine));
+				fromCDT (gpstate, commandLine, sizeof(commandLine));
 			}
 		}
 		// execute stacked commands if many command arrived once
-		if (!state.eof && state.cdtbufferB.size()>0) {
+		if (!gpstate->eof && gpstate->cdtbufferB.size()>0) {
 			commandLine[0] = '\0';
-			while (fromCDT (&state, commandLine, sizeof(commandLine)) == MORE_DATA)
+			while (fromCDT (gpstate, commandLine, sizeof(commandLine)) == MORE_DATA)
 				;
 		}
 	}
 
-	if (state.ptyfd != EOF)
-		close (state.ptyfd);
+	if (gpstate->ptyfd != EOF)
+		close (gpstate->ptyfd);
 	terminateSB ();
 
 	logprintf (LOG_INFO, "main exit\n");
@@ -359,24 +379,25 @@ signalHandler (int signo)
 	else
 		logprintf (LOG_INFO, "signal %s\n", signo);
 	if (signo==SIGINT) {
-		if (state.process.IsValid() && signals_received==0) {
+		if (gpstate->process.IsValid() && signals_received==0) {
 			int selfPID = getpid();
-			int processPID = state.process.GetProcessID();
+			int processPID = gpstate->process.GetProcessID();
 			logprintf (LOG_INFO, "signal_handler: signal SIGINT. self PID = %d, process pid = %d\n", selfPID, processPID);
 			logprintf (LOG_INFO, "send signal SIGSTOP to process %d\n", processPID);
-		//	state.process.Signal (SIGSTOP);
+		//	gpstate->process.Signal (SIGSTOP);
 			logprintf (LOG_INFO, "Stop process\n");
-			state.process.Stop();
+			gpstate->process.Stop();
 		//	++signals_received;
 		}
 		else
-			state.debugger.DispatchInputInterrupt();
+			gpstate->debugger.DispatchInputInterrupt();
 	}
 }
 
 /*
+
 BUTTON PAUSE (SIGSTOP or ^Z)
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               173728.927 ---  signal SIGINT
+
 173728.927 ---  signal_handler: signal SIGINT. self PID = 15659, process pid = 15660
 173728.927 ---  send signal SIGSTOP to process 15660
 173728.930 ###  eStateStopped
@@ -387,7 +408,7 @@ BUTTON PAUSE (SIGSTOP or ^Z)
 173728.940 <<=  |32^error,msg="Command unimplemented."\n(gdb)\n|
 
 BUTTON STOP (SIGINT or ^C)
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               173504.979 ###  eBroadcastBitSTDOUT
+
 173504.979 <<<  |loop 0\n|
 173505.222 ---  signal SIGINT
 173505.222 ---  signal_handler: signal SIGINT. self PID = 15615, process pid = 15616
@@ -404,4 +425,4 @@ BUTTON STOP (SIGINT or ^C)
 005610.309 <<=  |*stopped,reason="signal-received",signal-name="SIGSTOP",frame={addr="0x0000000000001286",func="waitthread()",args=[],file="tests.cpp",fullname="/Users/didier/Projets/git-lldbmi2/lldbmi2/tests/src/tests.cpp",line="50"},thread-id="1",stopped-threads="all"\n(gdb)\n|
 005610.319 <<=  |30^done,groups=[{id="i1",type="process",pid="20359",executable="/Users/didier/Projets/git-lldbmi2/lldbmi2/build/tests"}]\n(gdb)\n|
 
- */
+*/

@@ -69,6 +69,8 @@ typedef struct {
 	SBDebugger debugger;
 	SBProcess process;
 	SBListener listener;
+	SBTarget target;
+	SBLaunchInfo launchInfo = SBLaunchInfo(NULL);
 	int threadids[THREADS_MAX];
 } STATE;
 

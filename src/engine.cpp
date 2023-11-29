@@ -52,8 +52,6 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 	int nextarg;
 	CDT_COMMAND cc;
 
-	static SBTarget target;
-	static SBLaunchInfo launchInfo(NULL);
 
 	dataflag = MORE_DATA;
 	logdata (LOG_CDT_IN|LOG_RAW, commandLine, strlen(commandLine));
@@ -100,8 +98,8 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 		snprintf (path, sizeof(path), cc.argv[nextarg], pstate->project_loc);
 		if (strstr(cc.argv[nextarg],"%s")!=NULL)
 			logprintf (LOG_VARS, "%%s -> %s\n", path);
-		launchInfo.SetWorkingDirectory (path);
-		logprintf (LOG_NONE, "cwd=%s pwd=%s\n", path, launchInfo.GetWorkingDirectory());
+		pstate->launchInfo.SetWorkingDirectory (path);
+		logprintf (LOG_NONE, "cwd=%s pwd=%s\n", path, pstate->launchInfo.GetWorkingDirectory());
 		cdtprintf ("%d^done\n(gdb)\n", cc.sequence);
 	}
 	else if (strcmp(cc.argv[0],"unset")==0) {
@@ -141,7 +139,7 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 						((char*)(cc.argv[nextarg]))[copyarg] = cc.argv[nextarg][copyarg+1];
 					((char*)(cc.argv[nextarg]))[copyarg] = '\0';
 				}
-			launchInfo.SetArguments (&cc.argv[firstarg], false);
+			pstate->launchInfo.SetArguments (&cc.argv[firstarg], false);
 		}
 		else if (strcmp(cc.argv[nextarg],"env") == 0) {
 			// eclipse put a space around the equal in VAR = value. we have to combine all 3 part to form env entry
@@ -224,10 +222,10 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 				logprintf (LOG_VARS, "%%s -> %s\n", path);
 			strlcpy (programpath, path, sizeof(programpath));
 			if (strlen(pstate->arch)>0)
-				target = pstate->debugger.CreateTargetWithFileAndArch (programpath, pstate->arch);
+				pstate->target = pstate->debugger.CreateTargetWithFileAndArch (programpath, pstate->arch);
 			else
-				target = pstate->debugger.CreateTargetWithFileAndArch (programpath, LLDB_ARCH_DEFAULT);
-			if (!target.IsValid())
+				pstate->target = pstate->debugger.CreateTargetWithFileAndArch (programpath, LLDB_ARCH_DEFAULT);
+			if (!pstate->target.IsValid())
 				cdtprintf ("%d^error\n(gdb)\n", cc.sequence);
 			else 
 				cdtprintf ("%d^done\n(gdb)\n", cc.sequence);
@@ -236,7 +234,7 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 			if (pstate->process.IsValid()) {
 				pstate->process.Destroy();
 			}
-			pstate->debugger.DeleteTarget(target);
+			pstate->debugger.DeleteTarget(pstate->target);
 			cdtprintf ("%d^done\n(gdb)\n", cc.sequence);
 		}
 	}
@@ -258,13 +256,13 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 			else
 				strlcpy (processname, cc.argv[nextarg], PATH_MAX);
 		}
-		target = pstate->debugger.CreateTarget (NULL);
+		pstate->target = pstate->debugger.CreateTarget (NULL);
 	//	pstate->debugger.SetAsync (false);
 		SBProcess process;
 		if (pid > 0)
-			process = target.AttachToProcessWithID (pstate->listener, pid, error);
+			process = pstate->target.AttachToProcessWithID (pstate->listener, pid, error);
 		else if (processname[0]!='\0')
-			process = target.AttachToProcessWithName (pstate->listener, processname, false, error);
+			process = pstate->target.AttachToProcessWithName (pstate->listener, processname, false, error);
 	//	pstate->debugger.SetAsync (true);
 		if (!process.IsValid() || error.Fail()) {
 			cdtprintf ("%d^error,msg=\"%s\"\n(gdb)\n", cc.sequence, "Can not start process.");
@@ -300,7 +298,7 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 				((char*)(cc.argv[nextarg]))[copyarg] = '\0';
 			}
 		}
-		launchInfo.SetArguments (&cc.argv[firstarg], false);
+		pstate->launchInfo.SetArguments (&cc.argv[firstarg], false);
 		cdtprintf ("%d^done\n(gdb)\n", cc.sequence);
 	}
 	else if (strcmp(cc.argv[0],"-exec-run")==0) {
@@ -308,14 +306,14 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 		SBError error;
 		SBLaunchInfo targLaunchInfo(NULL);
 		const char *largv[] = {0,0};
-		for (unsigned int i = 0; i < launchInfo.GetNumArguments(); i++) {
-			largv[0] = launchInfo.GetArgumentAtIndex(i);
+		for (unsigned int i = 0; i < pstate->launchInfo.GetNumArguments(); i++) {
+			largv[0] = pstate->launchInfo.GetArgumentAtIndex(i);
 			targLaunchInfo.SetArguments(largv, true);
 		}
-		targLaunchInfo.SetWorkingDirectory(launchInfo.GetWorkingDirectory());
+		targLaunchInfo.SetWorkingDirectory(pstate->launchInfo.GetWorkingDirectory());
 		targLaunchInfo.SetEnvironmentEntries (pstate->envp, false);
 		logprintf (LOG_NONE, "launchInfo: args=%d env=%d, pwd=%s\n", targLaunchInfo.GetNumArguments(), targLaunchInfo.GetNumEnvironmentEntries(), targLaunchInfo.GetWorkingDirectory());
-		SBProcess process = target.Launch (targLaunchInfo, error);
+		SBProcess process = pstate->target.Launch (targLaunchInfo, error);
 		if (!process.IsValid() || error.Fail()) {
 			cdtprintf ("%d^error,msg=\"%s %s\"\n(gdb)\n", cc.sequence, "Can not start process.", error.GetCString());
 			logprintf (LOG_INFO, "process_error=%s\n", error.GetCString());
@@ -447,11 +445,11 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 	}
 	else if ((strcmp(cc.argv[0],"kill")==0) || (strcmp(cc.argv[0],"-exec-abort")==0)) {
 		srcprintf("kill\n");
-		if (target.GetProcess().IsValid()) {
-			if (target.GetProcess().GetState() == eStateStopped) // if process is stopped. restart it before kill
-				target.GetProcess().Continue();
-			target.GetProcess().Destroy();
-			target.GetProcess().Clear();
+		if (pstate->target.GetProcess().IsValid()) {
+			if (pstate->target.GetProcess().GetState() == eStateStopped) // if process is stopped. restart it before kill
+				pstate->target.GetProcess().Continue();
+			pstate->target.GetProcess().Destroy();
+			pstate->target.GetProcess().Clear();
 			cdtprintf (	"%d^done\n(gdb)\n",	cc.sequence);
 		}
 		else
@@ -538,7 +536,7 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 			*pline++ = '\0';
 			int iline=0;
 			sscanf (pline, "%d", &iline);
-			breakpoint = target.BreakpointCreateByLocation (path, iline);
+			breakpoint = pstate->target.BreakpointCreateByLocation (path, iline);
 		}
 		else if ((pline=strchr(path,'*')) != NULL) { // address
 			*pline++ = '\0';
@@ -548,10 +546,10 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 #else
 			sscanf (pline, "%lu", &addr);
 #endif
-			breakpoint = target.BreakpointCreateByAddress(addr);
+			breakpoint = pstate->target.BreakpointCreateByAddress(addr);
 		}
 		else		// function
-			breakpoint = target.BreakpointCreateByName (path, target.GetExecutable().GetFilename());
+			breakpoint = pstate->target.BreakpointCreateByName (path, pstate->target.GetExecutable().GetFilename());
 		breakpoint.SetEnabled(isenabled);
 		if ((breakpoint.GetNumLocations() > 0) || ispending) {
 			breakpoint.SetOneShot(isoneshot);
@@ -559,7 +557,7 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 			cdtprintf ("%d^done,bkpt=%s\n(gdb)\n", cc.sequence, breakpointdesc);
 		}
 		else {
-			target.BreakpointDelete(breakpoint.GetID());
+			pstate->target.BreakpointDelete(breakpoint.GetID());
 			cdtprintf ("^error,msg=\"could not find %s\"\n(gdb) \n", path);
 		}
 	}
@@ -568,7 +566,7 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 		// 11^done
 		int bpid=0;
 		sscanf (cc.argv[nextarg], "%d", &bpid);
-		target.BreakpointDelete(bpid);
+		pstate->target.BreakpointDelete(bpid);
 		cdtprintf ("%d^done\n(gdb)\n", cc.sequence);
 	}
 	else if (strcmp(cc.argv[0],"-break-enable")==0) {
@@ -576,7 +574,7 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 		// 11^done
 		int bpid=0;
 		sscanf (cc.argv[nextarg], "%d", &bpid);
-		SBBreakpoint breakpoint = target.FindBreakpointByID (bpid);
+		SBBreakpoint breakpoint = pstate->target.FindBreakpointByID (bpid);
 		breakpoint.SetEnabled(1);
 		cdtprintf ("%d^done\n(gdb)\n", cc.sequence);
 	}
@@ -585,7 +583,7 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 		// 11^done
 		int bpid=0;
 		sscanf (cc.argv[nextarg], "%d", &bpid);
-		SBBreakpoint breakpoint = target.FindBreakpointByID (bpid);
+		SBBreakpoint breakpoint = pstate->target.FindBreakpointByID (bpid);
 		breakpoint.SetEnabled(0);
 		cdtprintf ("%d^done\n(gdb)\n", cc.sequence);
 	}
@@ -608,7 +606,7 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 		if (nextarg<cc.argc)
 			strlcpy (expression, cc.argv[nextarg++], sizeof(expression));
 
-		/* Convert Pascal expression to C 
+		/* Convert Pascal expression to C
 		 *  Expected formats from laz-ide are:
 		 *    type(addr_t^)
 		 *    ^type(addr_t^)
@@ -627,16 +625,16 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 			}
 		}
 		snprintf(watchExpr, sizeof(watchExpr), "(%s *)(%s)", typeStr, addrStr);
-		/* 
-		 * End of Pascal manipulation 
+		/*
+		 * End of Pascal manipulation
 		 */
 
-		SBValue val = target.EvaluateExpression(watchExpr);
+		SBValue val = pstate->target.EvaluateExpression(watchExpr);
 		if (val.IsValid()) {
 			addr_t watchAddr = val.GetValueAsUnsigned();
 			if (watchAddr != 0) {
 				SBError error;
-				SBWatchpoint watch = target.WatchAddress(watchAddr, val.GetByteSize(), isRead, isWrite, error);
+				SBWatchpoint watch = pstate->target.WatchAddress(watchAddr, val.GetByteSize(), isRead, isWrite, error);
 				if (watch.IsValid() && error.Success()) {
 					cdtprintf ("%d^done,wpt={number=\"%d\",\"%s\"}\n(gdb)\n", cc.sequence, watch.GetID(), watchExpr);
 				}
@@ -681,8 +679,8 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 						",pid=\"%d\"", pid);
 				groupdesclength = strlen(groupsdesc);
 			}
-			if (target.IsValid()) {
-				execspec = target.GetExecutable();
+			if (pstate->target.IsValid()) {
+				execspec = pstate->target.GetExecutable();
 				filename = execspec.GetFilename();
 				filedir = execspec.GetDirectory();
 			}
@@ -1047,14 +1045,14 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 			else
 				cdtprintf ("%d^error\n(gdb)\n", cc.sequence);
 		}
-	}	
+	}
 	else if (strcmp(cc.argv[0],"-data-evaluate-expression")==0) {
 		char expression[PATH_MAX];
 		char expressionPath[PATH_MAX];
 		bool doDeref = false;
 		if (nextarg<cc.argc)
 			strlcpy (expression, cc.argv[nextarg++], sizeof(expression));
-		
+
 		char *pathStart = strchr(expression, '.');
 		if (pathStart != NULL) {
 			strlcpy(expressionPath, pathStart, sizeof(expressionPath));
@@ -1070,21 +1068,21 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 				expression[strlen(expression)-1] = '\0';
 			}
 			if (strcasecmp(expression, "sizeof(^char)")==0) {
-				strlcpy(expression, "sizeof(char*)", sizeof(expression));	
+				strlcpy(expression, "sizeof(char*)", sizeof(expression));
 			}
 		}
 		char *takeAddrOp = strchr(expression, '@');
-		if (takeAddrOp != NULL) 
+		if (takeAddrOp != NULL)
 			*takeAddrOp = '&';
 
-		SBValue val = target.EvaluateExpression(expression);
+		SBValue val = pstate->target.EvaluateExpression(expression);
 		if (val.IsValid() && (pathStart != NULL)) {
 			val = val.GetValueForExpressionPath(expressionPath);
 		}
 		if (val.IsValid() && doDeref) {
 			val = val.Dereference();
 		}
-		
+
 		if (val.IsValid()) {
 			if (val.GetError().Fail())
 				cdtprintf ("%d^error,msg=\"%s.\"\n(gdb)\n", cc.sequence, val.GetError().GetCString());
@@ -1132,7 +1130,7 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 		if (nextarg<cc.argc)
 			strlcpy (expression, cc.argv[nextarg++], sizeof(expression));
 		srcprintf("ptype %s\n", expression);
-		SBTypeList list = target.FindTypes(expression);
+		SBTypeList list = pstate->target.FindTypes(expression);
 		SBType type = findClassOfType(list, eTypeClassClass);
 		if (!type.IsValid())
 			type = findClassOfType(list, eTypeClassAny);
@@ -1142,16 +1140,16 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 				strlcpy(expressionPath, pathStart, sizeof(expressionPath));
 				*pathStart = '\0';
 			}
-			SBValue val = target.EvaluateExpression(expression);
+			SBValue val = pstate->target.EvaluateExpression(expression);
 			if (val.IsValid() && (pathStart != NULL))
 				val = val.GetValueForExpressionPath(expressionPath);
 			if (val.IsValid()) {
-				list = target.FindTypes(val.GetDisplayTypeName());
+				list = pstate->target.FindTypes(val.GetDisplayTypeName());
 				type = findClassOfType(list, eTypeClassClass);
 				if (!type.IsValid())
 					type = findClassOfType(list, eTypeClassAny);
 				if (!type.IsValid()) {
-					SBSymbolContextList list = target.FindFunctions(expression);
+					SBSymbolContextList list = pstate->target.FindFunctions(expression);
 					SBSymbolContext ctxt = list.GetContextAtIndex(0);
 					type = ctxt.GetFunction().GetType();
 					if (!type.IsValid()) {
@@ -1185,7 +1183,7 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 					for (int i = 0; i < numfuncs; i++) {
 						StringB funcs(BIG_LINE_MAX);
 						SBTypeMemberFunction mbr = type.GetMemberFunctionAtIndex(i);
-						if (mbr.GetReturnType().GetBasicType() == eBasicTypeVoid) 
+						if (mbr.GetReturnType().GetBasicType() == eBasicTypeVoid)
 							funcs.append("    procedure");
 						else
 							funcs.append("    function ");
@@ -1199,7 +1197,7 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 							}
 						}
 						funcs.append(")");
-						if (mbr.GetReturnType().GetBasicType() != eBasicTypeVoid) 
+						if (mbr.GetReturnType().GetBasicType() != eBasicTypeVoid)
 							funcs.catsprintf(" : %s", mbr.GetReturnType().GetDisplayTypeName());
 						srlprintf("%s;\n", funcs.c_str());
 					}
@@ -1224,7 +1222,7 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 					}
 					func.append(")");
 				}
-				if (funcReturnType.GetBasicType() != eBasicTypeVoid) 
+				if (funcReturnType.GetBasicType() != eBasicTypeVoid)
 					func.catsprintf(" : %s", funcReturnType.GetDisplayTypeName());
 				srlprintf("%s\n", func.c_str());
 			}
@@ -1283,22 +1281,22 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 			cdtprintf ("%d^error\n(gdb)\n", cc.sequence);
 	}
 	// OTHER COMMANDS
-	else if ((strcmp(cc.argv[0],"-file-list-exec-sections")==0) || 
+	else if ((strcmp(cc.argv[0],"-file-list-exec-sections")==0) ||
 	   ((cc.argc == 2) && (strcmp(cc.argv[0],"info")==0) && (strcmp(cc.argv[1],"file")==0))) {
-		if (target.IsValid()) {
+		if (pstate->target.IsValid()) {
 			addr_t NOTLOADED = (addr_t)(-1);
 		   	char filename[PATH_MAX];
-			SBFileSpec execFile = target.GetExecutable();
+			SBFileSpec execFile = pstate->target.GetExecutable();
 			execFile.GetPath(filename, sizeof(filename));
-		   	const char *filetype = target.GetTriple();
+		   	const char *filetype = pstate->target.GetTriple();
 		   	addr_t entrypt = -1;
-		   	SBModule execMod = target.FindModule(execFile);
+		   	SBModule execMod = pstate->target.FindModule(execFile);
 		   	if (execMod.IsValid()) {
 		   		SBSection txtSect = execMod.FindSection("__TEXT");
 		   		if (txtSect.IsValid()) {
 		   			SBSection subTxtSect = txtSect.FindSubSection("__text");
 		   			if (subTxtSect.IsValid()) {
-		   				entrypt = subTxtSect.GetLoadAddress(target);
+		   				entrypt = subTxtSect.GetLoadAddress(pstate->target);
 		   				if (entrypt == NOTLOADED)
 		   					entrypt = subTxtSect.GetFileAddress();
 		   			}
@@ -1309,10 +1307,10 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 				srlprintf("Symbols from \"%s\".\n", filename);
 				srlprintf("\"%s\"\n", filetype);
 		   	}
-			cdtprintf ("%d^done,section-info={filename=\"%s\",filetype=\"%s\",entry-point=\"%p\",sections={", 
+			cdtprintf ("%d^done,section-info={filename=\"%s\",filetype=\"%s\",entry-point=\"%p\",sections={",
 				cc.sequence, filename, filetype, entrypt);
-			for (unsigned int mndx = 0; mndx < target.GetNumModules(); mndx++) {
-				SBModule mod = target.GetModuleAtIndex(mndx);
+			for (unsigned int mndx = 0; mndx < pstate->target.GetNumModules(); mndx++) {
+				SBModule mod = pstate->target.GetModuleAtIndex(mndx);
 				if (!mod.IsValid())
 					continue;
 				SBFileSpec modfilespec = mod.GetFileSpec();
@@ -1323,7 +1321,7 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 					if (!sect.IsValid())
 						continue;
 					const char *sectName = sect.GetName();
-					addr_t faddr = sect.GetLoadAddress(target);
+					addr_t faddr = sect.GetLoadAddress(pstate->target);
 					if (faddr == NOTLOADED)
 						faddr = sect.GetFileAddress();
 					addr_t eaddr = faddr + sect.GetByteSize();
@@ -1335,7 +1333,7 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 						SBSection subsect = sect.GetSubSectionAtIndex(sbndx);
 						if (!subsect.IsValid())
 							continue;
-						faddr = subsect.GetLoadAddress(target);
+						faddr = subsect.GetLoadAddress(pstate->target);
 						if (faddr == NOTLOADED)
 							faddr = subsect.GetFileAddress();
 						eaddr = faddr + subsect.GetByteSize();
@@ -1357,9 +1355,9 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 		else if (strcmp(cc.argv[nextarg],"sharedlibrary") == 0) {
 			// code from lldm-mi
 			int nLibraries = 0;
-			int nModules = target.GetNumModules();
+			int nModules = pstate->target.GetNumModules();
 		    for (int iModule=0; iModule<nModules; iModule++) {
-		        SBModule module = target.GetModuleAtIndex(iModule);
+		        SBModule module = pstate->target.GetModuleAtIndex(iModule);
 		        if (module.IsValid()) {
 		            const char *moduleFilePath = module.GetFileSpec().GetDirectory();
 		            const char *moduleFileName = module.GetFileSpec().GetFilename();
@@ -1371,7 +1369,7 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 		            for (int iSection = 0; iSection < nSections; iSection++)
 		            {
 		                SBSection section = module.GetSectionAtIndex(iSection);
-		                addr_t addrLoad = section.GetLoadAddress(target);
+		                addr_t addrLoad = section.GetLoadAddress(pstate->target);
 		                if (addrLoad != (addr_t) -1) {
 		                    if (!bHaveAddrLoad) {
 		                        bHaveAddrLoad = true;
@@ -1397,12 +1395,12 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 			if (nextarg<cc.argc)
 				strlcpy (symbol, cc.argv[++nextarg], sizeof(symbol));
 			srcprintf("info address %s\n", symbol);
-			SBSymbolContextList list = target.FindSymbols(symbol);
+			SBSymbolContextList list = pstate->target.FindSymbols(symbol);
 			if (list.IsValid()) {
 				SBSymbolContext ctxt = list.GetContextAtIndex(0);
 				SBSymbol symb = ctxt.GetSymbol();
 				if (symb.GetType() == eSymbolTypeData) {
-					SBValue val = ctxt.GetModule().FindFirstGlobalVariable(target, symb.GetName());
+					SBValue val = ctxt.GetModule().FindFirstGlobalVariable(pstate->target, symb.GetName());
 					if (val.IsValid()) {
 						srlprintf("Symbol \"%s\" is %s at %s\n", symbol, val.GetTypeName(), val.GetLocation());
 						cdtprintf ("%d^done\n(gdb)\n", cc.sequence);
@@ -1412,10 +1410,10 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 				}
 				else {
 					SBAddress startaddr = symb.GetStartAddress();
-					addr_t vaddr = startaddr.GetLoadAddress(target);
+					addr_t vaddr = startaddr.GetLoadAddress(pstate->target);
 					if (vaddr == LLDB_INVALID_ADDRESS)
 						vaddr = startaddr.GetFileAddress();
-					if (symb.GetType() == eSymbolTypeCode) 
+					if (symb.GetType() == eSymbolTypeCode)
 						srlprintf("Symbol \"%s\" is a function at address %p.\n", symb.GetName(), vaddr);
 					else
 						srlprintf("Symbol \"%s\" is at address %p.\n", symbol, vaddr);
@@ -1430,7 +1428,7 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 			char symbol[NAME_MAX];
 			if (nextarg<cc.argc)
 				strlcpy (symbol, cc.argv[++nextarg], sizeof(symbol));
-			SBSymbolContextList list = target.FindFunctions(symbol, eFunctionNameTypeAny);
+			SBSymbolContextList list = pstate->target.FindFunctions(symbol, eFunctionNameTypeAny);
 			srcprintf("info functions %s\n", symbol);
 			static StringB funcdescB(BIG_LINE_MAX);
 			funcdescB.clear();
@@ -1459,7 +1457,7 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 				int iline=0;
 				sscanf (pline, "%d", &iline);
 				SBFileSpec fspec;
-				SBCompileUnit foundCU = findCUForFile(path, target, fspec);
+				SBCompileUnit foundCU = findCUForFile(path, pstate->target, fspec);
 				if (foundCU.IsValid()) {
 					bool HasCode = true;
 					int linendx = foundCU.FindLineEntryIndex(0, iline, &fspec, HasCode);
@@ -1476,7 +1474,7 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 						SBFunction endfunc = lEntry.GetEndAddress().GetFunction();
 						addr_t endfuncaddr = startfunc.GetStartAddress().GetFileAddress();
 						srlprintf("Line %d of \"%s\" starts at address %p <%s+%d> and ends at %p <%s+%d>\n",
-							iline, lEntry.GetFileSpec().GetFilename(), 
+							iline, lEntry.GetFileSpec().GetFilename(),
 							startaddr, startfunc.GetName(), (startaddr - startfuncaddr),
 							endaddr, endfunc.GetName(), (endaddr - endfuncaddr));
 					}
@@ -1490,12 +1488,12 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 				}
 				else {
 					srcprintf("No source file named %s.\n",path);
-					cdtprintf ("%d^error,msg=\"No source file named %s.\"\n(gdb)\n", cc.sequence, path);	
+					cdtprintf ("%d^error,msg=\"No source file named %s.\"\n(gdb)\n", cc.sequence, path);
 				}
 			}
 			else {
-				srcprintf ("Function \"%s\" not defined.\n", path);	
-				cdtprintf ("%d^error,msg=\"Function \"%s\" not defined.\"\n(gdb)\n", cc.sequence, path);	
+				srcprintf ("Function \"%s\" not defined.\n", path);
+				cdtprintf ("%d^error,msg=\"Function \"%s\" not defined.\"\n(gdb)\n", cc.sequence, path);
 			}
 		}
 		else if (strcmp(cc.argv[nextarg],"program") == 0) {
@@ -1535,7 +1533,7 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 		if (nextarg<cc.argc)
 			strlcpy (path, cc.argv[nextarg++], sizeof(path));
 		SBFileSpec fspec;
-		SBCompileUnit foundCU = findCUForFile(path, target, fspec);
+		SBCompileUnit foundCU = findCUForFile(path, pstate->target, fspec);
 
 		if (foundCU.IsValid()) {
 			cdtprintf("%d^done,lines={", cc.sequence);
@@ -1555,7 +1553,7 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 			cdtprintf ("%d^error,msg=\"-symbol-list-lines: Unknown source file name.\"\n(gdb)\n", cc.sequence);
 	}
 	else if (strcmp(cc.argv[0],"catch")==0 && strcmp(cc.argv[1],"catch")==0) {
-		SBBreakpoint breakpoint = target.BreakpointCreateForException(lldb::LanguageType::eLanguageTypeC_plus_plus, true, false);
+		SBBreakpoint breakpoint = pstate->target.BreakpointCreateForException(lldb::LanguageType::eLanguageTypeC_plus_plus, true, false);
 
 		cdtprintf ("&\"catch catch\\n\"\n");
 		cdtprintf ("~\"Catchpoint %d (catch)\\n\"\n", breakpoint.GetID());
@@ -1563,7 +1561,7 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 		cdtprintf ("%d^done\n(gdb)\n", cc.sequence);
 	}
 	else if (strcmp(cc.argv[0],"catch")==0 && strcmp(cc.argv[1],"throw")==0) {
-		SBBreakpoint breakpoint = target.BreakpointCreateForException(lldb::LanguageType::eLanguageTypeC_plus_plus, false, true);
+		SBBreakpoint breakpoint = pstate->target.BreakpointCreateForException(lldb::LanguageType::eLanguageTypeC_plus_plus, false, true);
 
 		cdtprintf ("&\"catch throw\\n\"\n");
 		cdtprintf ("~\"Catchpoint %d (throw)\\n\"\n", breakpoint.GetID());
@@ -1637,27 +1635,27 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 #endif
 		}
 		if ((startaddr != LLDB_INVALID_ADDRESS) && (endaddr != LLDB_INVALID_ADDRESS)) {
-			SBAddress saddr = target.ResolveFileAddress(startaddr);
-			SBAddress eaddr = target.ResolveFileAddress(endaddr);
+			SBAddress saddr = pstate->target.ResolveFileAddress(startaddr);
+			SBAddress eaddr = pstate->target.ResolveFileAddress(endaddr);
 			int cnt = eaddr.GetFileAddress() - saddr.GetFileAddress();
 			if (saddr.IsValid() && eaddr.IsValid()) {
-				SBInstructionList ilist = target.ReadInstructions(saddr, cnt);
+				SBInstructionList ilist = pstate->target.ReadInstructions(saddr, cnt);
 				if (ilist.IsValid()) {
-					cdtprintf ("%d^done,asm_insns=[",cc.sequence); 
+					cdtprintf ("%d^done,asm_insns=[",cc.sequence);
 					for (int i = 0; i < cnt; i++) {
 						SBInstruction instr = ilist.GetInstructionAtIndex(i);
 						SBAddress iaddr = instr.GetAddress();
 						if (iaddr.GetFileAddress() > eaddr.GetFileAddress()) {
 							break;
 						}
-						SBAddress laddr = target.ResolveLoadAddress(iaddr.GetFileAddress());
+						SBAddress laddr = pstate->target.ResolveLoadAddress(iaddr.GetFileAddress());
 						SBSymbol symb = laddr.GetSymbol();
 						addr_t off = laddr.GetFileAddress() - symb.GetStartAddress().GetFileAddress();
 						if (i != 0)
 							cdtprintf(",");
 						cdtprintf("{address=\"%p\",func-name=\"%s\",offset=\"%d\",inst=\"%-12s%-25s %s\"}",
-							iaddr.GetFileAddress(), symb.GetName(), off, 
-							instr.GetMnemonic(target), instr.GetOperands(target), instr.GetComment(target));
+							iaddr.GetFileAddress(), symb.GetName(), off,
+							instr.GetMnemonic(pstate->target), instr.GetOperands(pstate->target), instr.GetComment(pstate->target));
 					}
 					cdtprintf ("]\n(gdb)\n");
 				}
@@ -1700,7 +1698,7 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 		if ((nextarg<cc.argc) && isdigit(*cc.argv[nextarg])) {
 			sscanf (cc.argv[nextarg++], "%d", &nrCols);
 		}
-		SBValue value = target.EvaluateExpression(expression);
+		SBValue value = pstate->target.EvaluateExpression(expression);
 		if (!value.IsValid()) {
 			cdtprintf ("%d^error,msg=\"Could not find value for %s\"\n(gdb)\n", cc.sequence, expression);
 		}
@@ -1717,7 +1715,7 @@ fromCDT (STATE *pstate, const char *commandLine, int linesize)			// from cdt
 				if (error.Fail() || (readCnt == 0)) {
 					SBStream s;
 					error.GetDescription(s);
-					printf("Read failed (%d %d): %s\n", error.GetError(), 
+					printf("Read failed (%d %d): %s\n", error.GetError(),
 						error.GetType(), s.GetData());
 					cdtprintf ("%d^error,msg=\"%s\"\n(gdb)\n", cc.sequence, s.GetData());
 				}
