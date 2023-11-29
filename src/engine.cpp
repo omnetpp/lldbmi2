@@ -41,18 +41,14 @@ void terminateSB() {
 int fromCDT(STATE* pstate, const char* commandLine, int linesize) // from cdt
 {
     logprintf(LOG_NONE, "fromCDT (0x%x, ..., %d)\n", pstate, linesize);
-    char* endofline;
     StringB cdtcommandB(BIG_LINE_MAX);
-    int dataflag;
-    char programpath[LINE_MAX];
-    int nextarg;
     CDT_COMMAND cc;
 
-    dataflag = MORE_DATA;
+    int dataflag = MORE_DATA;
     logdata(LOG_CDT_IN | LOG_RAW, commandLine, strlen(commandLine));
     // put CDT input in the big CDT buffer
     pstate->cdtbufferB.append(commandLine);
-    endofline = strstr(pstate->cdtbufferB.c_str(), "\n");
+    char *endofline = strstr(pstate->cdtbufferB.c_str(), "\n");
     if (endofline != NULL) {
         // multiple command in cdtbuffer. take the first one and shift the buffer
         int commandsize = endofline + 1 - pstate->cdtbufferB.c_str();
@@ -69,8 +65,9 @@ int fromCDT(STATE* pstate, const char* commandLine, int linesize) // from cdt
     } else
         return WAIT_DATA;
 
-    nextarg = evalCDTCommand(pstate, cdtcommandB.c_str(), &cc);
+    int nextarg = evalCDTCommand(pstate, cdtcommandB.c_str(), &cc);
     if (nextarg == 0) {
+        // no-op
     }
     // MISCELLANOUS COMMANDS
     else if (strcmp(cc.argv[0], "-gdb-exit") == 0) {
@@ -205,6 +202,7 @@ int fromCDT(STATE* pstate, const char* commandLine, int linesize) // from cdt
             snprintf(path, sizeof(path), cc.argv[nextarg], pstate->project_loc);
             if (strstr(cc.argv[nextarg], "%s") != NULL)
                 logprintf(LOG_VARS, "%%s -> %s\n", path);
+            char programpath[LINE_MAX];
             strlcpy(programpath, path, sizeof(programpath));
             if (strlen(pstate->arch) > 0)
                 pstate->target = pstate->debugger.CreateTargetWithFileAndArch(programpath, pstate->arch);
