@@ -12,8 +12,8 @@ using namespace lldb;
 #ifdef __APPLE__
 #include <sys/syslimits.h>
 #else
-#include <limits.h>
-#include <string.h>
+#include <climits>
+#include <cstring>
 #include <unistd.h>
 
 #include "strlxxx.h"

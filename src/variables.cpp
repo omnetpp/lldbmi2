@@ -1,10 +1,12 @@
-
 #include "lldbmi2.h"
+
+#include <cctype>
+#include <cstdlib>
+
 #include "log.h"
 #include "variables.h"
 #include "names.h"
-#include <ctype.h>
-#include <stdlib.h>
+
 
 extern LIMITS limits;
 

@@ -1,21 +1,22 @@
 
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstdarg>
+#include <cstring>
+
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/timeb.h>
-#include <stdarg.h>
-#include <string.h>
 #include <sys/param.h>
 #ifdef __APPLE__
 #include <util.h>
 #include <sys/syslimits.h>
 #else
-#include <limits.h>
-#include <time.h>
+#include <climits>
+#include <ctime>
 #endif
 
 #include "log.h"

@@ -1,11 +1,12 @@
 
-#include <stdio.h>
-#include <ctype.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <string.h>
-#include <termios.h>
+#include <cstdio>
+#include <cctype>
+#include <cstring>
 #include <cstdlib>
+
+#include <fcntl.h>
+#include <termios.h>
+#include <unistd.h>
 
 #include "lldbmi2.h"
 #include "strlxxx.h"

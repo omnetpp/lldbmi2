@@ -1,8 +1,8 @@
 
-#include <stdlib.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <string.h>
+#include <cstdlib>
+#include <cstdarg>
+#include <cstdio>
+#include <cstring>
 
 #include "strlxxx.h"
 #include "stringb.h"

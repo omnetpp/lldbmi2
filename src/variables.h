@@ -3,6 +3,7 @@
 #define VARIABLES_H
 
 #include <lldb/API/LLDB.h>
+
 using namespace lldb;
 
 typedef enum {

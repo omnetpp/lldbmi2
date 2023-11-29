@@ -3,10 +3,10 @@
 
 // avoid adding or removing lines or -break-insert statements must be ajusted in test.cpp
 
-#include <stdio.h>
+#include <cstdio>
+#include <cstring>
 #include <pthread.h>
 #include <unistd.h>
-#include <string.h>
 
 /////////////////////////////
 

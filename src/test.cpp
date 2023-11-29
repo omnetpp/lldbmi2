@@ -1,12 +1,12 @@
 
-#include <stdio.h>
+#include <cstdio>
+#include <cctype>
+#include <cstring>
 #include <unistd.h>
-#include <ctype.h>
-#include <string.h>
 #ifdef __APPLE__
 #include <sys/syslimits.h>
 #else
-#include <limits.h>
+#include <climits>
 #endif
 #include "log.h"
 #include "test.h"
