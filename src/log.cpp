@@ -33,9 +33,8 @@ static int log_mask = LOG_ALL;
 // set the log filename from the program path
 // if under eclipse it should be in the root of the project
 void setlogfile(char* logfilename, int filenamesize, const char* progname, const char* logname) {
-    char* penv;
     // first try with eclipse project root path
-    penv = getenv("ProjDirPath");
+    char* penv = getenv("ProjDirPath");
     if (penv != NULL)
         snprintf(logfilename, filenamesize, "%s/%s", penv, logname); // used for lldbmi2.log
     else {

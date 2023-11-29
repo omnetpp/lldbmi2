@@ -21,7 +21,6 @@
 #include <dlfcn.h>
 #endif
 
-
 #include "engine.h"
 #include "variables.h"
 #include "log.h"
@@ -67,14 +66,8 @@ int main(int argc, char** argv, char** envp) {
 
     gpstate = new STATE();
 
-    int narg;
-    fd_set set;
     char commandLine[BIG_LINE_MAX]; // data from cdt
-    char consoleLine[LINE_MAX];     // data from eclipse's console
-    long chars;
-    struct timeval timeout;
     int isVersion = 0, isInterpreter = 0;
-    const char* testCommand = NULL;
     int isLog = 0;
     unsigned int logmask = LOG_ALL;
 
@@ -89,7 +82,7 @@ int main(int argc, char** argv, char** envp) {
     limits.change_depth_max = CHANGE_DEPTH_MAX;
 
     // get args
-    for (narg = 0; narg < argc; narg++) {
+    for (int narg = 0; narg < argc; narg++) {
         logarg(argv[narg]);
         if (strcmp(argv[narg], "--version") == 0)
             isVersion = 1;
@@ -181,11 +174,13 @@ int main(int argc, char** argv, char** envp) {
 
     cdtprintf("(gdb)\n");
 
-    // main loop
+    fd_set set;
     FD_ZERO(&set);
+    // main loop
     while (!gpstate->eof) {
         logprintf(LOG_INFO, "main loop\n");
         // get inputs
+        timeval timeout;
         timeout.tv_sec = 0;
         timeout.tv_usec = 200000;
         // check command from CDT
@@ -201,7 +196,7 @@ int main(int argc, char** argv, char** envp) {
 
         if (FD_ISSET(STDIN_FILENO, &set) && !gpstate->eof && !limits.istest) {
             logprintf(LOG_INFO, "read in\n");
-            chars = read(STDIN_FILENO, commandLine, sizeof(commandLine) - 1);
+            long chars = read(STDIN_FILENO, commandLine, sizeof(commandLine) - 1);
             logprintf(LOG_INFO, "read out %d chars\n", chars);
             if (chars > 0) {
                 commandLine[chars] = '\0';
@@ -217,8 +212,9 @@ int main(int argc, char** argv, char** envp) {
 
         if (gpstate->ptyfd != EOF && gpstate->isrunning) { // input from user to program
             if (FD_ISSET(gpstate->ptyfd, &set) && !gpstate->eof && !limits.istest) {
+                char consoleLine[LINE_MAX]; // data from eclipse's console
                 logprintf(LOG_NONE, "pty read in\n");
-                chars = read(gpstate->ptyfd, consoleLine, sizeof(consoleLine) - 1);
+                long chars = read(gpstate->ptyfd, consoleLine, sizeof(consoleLine) - 1);
                 logprintf(LOG_NONE, "pty read out %d chars\n", chars);
                 if (chars > 0) {
                     logprintf(LOG_PROG_OUT, "pty read %d chars\n", chars);
@@ -234,6 +230,7 @@ int main(int argc, char** argv, char** envp) {
 
         // execute test command if test mode
         if (!gpstate->eof && limits.istest && !gpstate->isrunning) {
+            const char* testCommand = NULL;
             if ((testCommand = getTestCommand()) != NULL) {
                 snprintf(commandLine, sizeof(commandLine), "%s\n", testCommand);
                 fromCDT(gpstate, commandLine, sizeof(commandLine));
