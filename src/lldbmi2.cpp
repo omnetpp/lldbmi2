@@ -62,6 +62,10 @@ STATE* gpstate;
 int main(int argc, char** argv, char** envp) {
 #ifdef UNLINKED
     void* ret = dlopen("liblldb.so", RTLD_NOW | RTLD_GLOBAL);
+    if (ret == NULL) {
+        fprintf(stderr, "dlopen failed: %s\n", dlerror());
+        return EXIT_FAILURE;
+    }
 #endif
 
     gpstate = new STATE();
