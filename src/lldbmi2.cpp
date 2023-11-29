@@ -192,32 +192,22 @@ int main(int argc, char** argv, char** envp) {
         } else
             select(STDIN_FILENO + 1, &set, NULL, NULL, &timeout);
 
-        logprintf(LOG_INFO, "select done\n");
-
         if (FD_ISSET(STDIN_FILENO, &set) && !gpstate->eof && !limits.istest) {
-            logprintf(LOG_INFO, "read in\n");
             long chars = read(STDIN_FILENO, commandLine, sizeof(commandLine) - 1);
-            logprintf(LOG_INFO, "read out %d chars\n", chars);
             if (chars > 0) {
                 commandLine[chars] = '\0';
                 while (fromCDT(gpstate, commandLine, sizeof(commandLine)) == MORE_DATA) {
-                    logprintf(LOG_INFO, "while...\n");
                     commandLine[0] = '\0';
                 }
             } else
                 gpstate->eof = true;
         }
 
-        logprintf(LOG_INFO, "read 1 done\n");
-
         if (gpstate->ptyfd != EOF && gpstate->isrunning) { // input from user to program
             if (FD_ISSET(gpstate->ptyfd, &set) && !gpstate->eof && !limits.istest) {
                 char consoleLine[LINE_MAX]; // data from eclipse's console
-                logprintf(LOG_NONE, "pty read in\n");
                 long chars = read(gpstate->ptyfd, consoleLine, sizeof(consoleLine) - 1);
-                logprintf(LOG_NONE, "pty read out %d chars\n", chars);
                 if (chars > 0) {
-                    logprintf(LOG_PROG_OUT, "pty read %d chars\n", chars);
                     consoleLine[chars] = '\0';
                     SBProcess process = gpstate->process;
                     if (process.IsValid())
@@ -225,8 +215,6 @@ int main(int argc, char** argv, char** envp) {
                 }
             }
         }
-
-        logprintf(LOG_INFO, "read 2 done\n");
 
         // execute test command if test mode
         if (!gpstate->eof && limits.istest && !gpstate->isrunning) {
