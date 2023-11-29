@@ -36,16 +36,16 @@ using namespace lldb;
 #define ENV_ENTRIES 200
 
 // static context
-typedef struct {
+struct LIMITS {
     bool istest;
     int frames_max;
     int children_max;
     int walk_depth_max;
     int change_depth_max;
-} LIMITS;
+};
 
 // dynamic context
-typedef struct {
+struct STATE {
     int ptyfd;
     bool eof;
     bool procstop;
@@ -71,7 +71,7 @@ typedef struct {
     SBTarget target;
     SBLaunchInfo launchInfo = SBLaunchInfo(NULL);
     int threadids[THREADS_MAX];
-} STATE;
+};
 
 const char* logarg(const char* arg);
 void writetocdt(const char* line);
