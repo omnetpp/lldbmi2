@@ -12,25 +12,6 @@ extern LIMITS limits;
 
 static pthread_t sbTID;
 
-
-void terminateProcess(Lldbmi2* pstate, int how) {
-    logprintf(LOG_TRACE, "terminateProcess (0x%x, 0x%x)\n", pstate, how);
-    pstate->procstop = true;
-    if (pstate->process.IsValid()) {
-        SBThread thread = pstate->process.GetSelectedThread();
-        int tid = thread.IsValid() ? thread.GetIndexID() : 0;
-        if ((how & PRINT_THREAD))
-            cdtprintf("=thread-exited,id=\"%d\",group-id=\"%s\"\n", tid, pstate->threadgroup);
-        pstate->process.Destroy();
-        //	pstate->process.Kill();
-    } else
-        logprintf(LOG_INFO, "pstate->process not valid\n");
-    if ((how & PRINT_GROUP))
-        cdtprintf("=thread-group-exited,id=\"%s\",exit-code=\"0\"\n", pstate->threadgroup);
-    if ((how & AND_EXIT))
-        pstate->eof = true;
-}
-
 int startProcessListener(Lldbmi2* pstate) {
     pstate->procstop = false;
     logprintf(LOG_TRACE, "startProcessListener (0x%x)\n", pstate);
@@ -75,14 +56,14 @@ void* processListener(void* arg) {
                         //	logprintf (LOG_INFO, "console kill: send SIGINT\n");
                         //	pstate->process.Signal(SIGINT);
                         logprintf(LOG_INFO, "console kill: terminateProcess\n");
-                        terminateProcess(pstate, PRINT_GROUP | AND_EXIT);
+                        pstate->terminateProcess(PRINT_GROUP | AND_EXIT);
                     }
                     logprintf(LOG_EVENTS, "eStateRunning\n");
                     break;
                 case eStateExited:
                     logprintf(LOG_EVENTS, "eStateExited\n");
                     checkThreadsLife(pstate, process); // not useful. threads are not stopped before exit
-                    terminateProcess(pstate, PRINT_GROUP);
+                    pstate->terminateProcess(PRINT_GROUP);
                     // cdtprintf ("*stopped,reason=\"exited-normally\"\n(gdb)\n");
                     logprintf(LOG_INFO, "processlistener. eof=%d\n", pstate->eof);
                     break;

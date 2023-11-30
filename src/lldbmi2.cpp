@@ -299,6 +299,25 @@ void Lldbmi2::setSignals()
     }
 }
 
+void Lldbmi2::terminateProcess(int how)
+{
+    logprintf(LOG_TRACE, "terminateProcess (0x%x, 0x%x)\n", this, how);
+    procstop = true;
+    if (process.IsValid()) {
+        SBThread thread = process.GetSelectedThread();
+        int tid = thread.IsValid() ? thread.GetIndexID() : 0;
+        if ((how & PRINT_THREAD))
+            cdtprintf("=thread-exited,id=\"%d\",group-id=\"%s\"\n", tid, threadgroup);
+        process.Destroy();
+        //	pstate->process.Kill();
+    } else
+        logprintf(LOG_INFO, "pstate->process not valid\n");
+    if ((how & PRINT_GROUP))
+        cdtprintf("=thread-group-exited,id=\"%s\",exit-code=\"0\"\n", threadgroup);
+    if ((how & AND_EXIT))
+        eof = true;
+}
+
 // log an argument and return the argument
 const char* logarg(const char* arg) {
     addlog(arg);

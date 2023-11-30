@@ -55,7 +55,7 @@ public:
 
     bool addEnvironment(const char* entrystring);
     void setSignals();
-
+    void terminateProcess(int how);
     ~Lldbmi2();
 
     int ptyfd;
