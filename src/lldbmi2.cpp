@@ -40,34 +40,33 @@ Lldbmi2::Lldbmi2()
 
 void Lldbmi2::help()
 {
-    fprintf(stderr, "%s", lldbmi2Prompt);
-    fprintf(stderr, "Description:\n");
-    fprintf(stderr, "   A MI2 interface to LLDB\n");
-    fprintf(stderr, "Authors:\n");
-    fprintf(stderr, "   Didier Bertrand, 2015, 2016, 2018\n");
-    fprintf(stderr, "   Eduard Matveev, 2016\n");
-    fprintf(stderr, "   David Jenkins, 2018\n");
-    fprintf(stderr, "Syntax:\n");
-    fprintf(stderr, "   lldbmi2 --version [options]\n");
-    fprintf(stderr, "   lldbmi2 --interpreter mi2 [options]\n");
-    fprintf(stderr, "Arguments:\n");
-    fprintf(stderr, "   --version:           Return GDB's version (GDB 7.7.1) and exits.\n");
-    fprintf(stderr, "   --interpreter mi2:   Standard mi2 interface.\n");
-    fprintf(stderr, "   --interpreter=mi2:   Standard mi2 interface.\n");
-    fprintf(stderr, "Options:\n");
-    fprintf(stderr, "   --log:                Create log file in project root directory.\n");
-    fprintf(stderr, "   --logmask mask:       Select log categories. 0xFFF. See source code for values.\n");
-    fprintf(stderr,
-            "   --arch arch_name:     Force a different architecture from host architecture: arm64, x86_64, i386\n");
-    fprintf(stderr, "   --test n:             Execute test sequence (to debug lldmi2).\n");
-    fprintf(stderr, "   --script file_path:   Execute test script or replay logfile (to debug lldmi2).\n");
-    fprintf(stderr, "   --nx:                 Ignored.\n");
-    fprintf(stderr, "   --frames frames:      Max number of frames to display (%d).\n", FRAMES_MAX);
-    fprintf(stderr, "   --children children:  Max number of children to check for update (%d).\n", CHILDREN_MAX);
-    fprintf(stderr, "   --walkdepth depth:    Max walk depth in search for variables (%d).\n", WALK_DEPTH_MAX);
-    fprintf(stderr, "   --changedepth depth:  Max depth to check for updated variables (%d).\n", CHANGE_DEPTH_MAX);
+    std::cerr << lldbmi2Prompt <<
+R"(Description:
+   A MI2 interface to LLDB
+Authors:
+   Didier Bertrand, 2015, 2016, 2018
+   Eduard Matveev, 2016
+   David Jenkins, 2018
+Syntax:
+   lldbmi2 --version [options]
+   lldbmi2 --interpreter mi2 [options]
+Arguments:
+   --version:           Return GDB's version (GDB 7.7.1) and exits.
+   --interpreter mi2:   Standard mi2 interface.
+   --interpreter=mi2:   Standard mi2 interface.
+Options:
+   --log:                Create log file in project root directory.
+   --logmask mask:       Select log categories. 0xFFF. See source code for values.
+   --arch arch_name:     Force a different architecture from host architecture: arm64, x86_64, i386
+   --test n:             Execute test sequence (to debug lldmi2).
+   --script file_path:   Execute test script or replay logfile (to debug lldmi2).
+   --nx:                 Ignored.
+)"
+    << "   --frames frames:      Max number of frames to display (" << FRAMES_MAX << ")." << std::endl
+    << "   --children children:  Max number of children to check for update (" << CHILDREN_MAX << ")." << std::endl
+    << "   --walkdepth depth:    Max walk depth in search for variables (" << WALK_DEPTH_MAX << ")." << std::endl
+    << "   --changedepth depth:  Max depth to check for updated variables (" << CHANGE_DEPTH_MAX << ")." << std::endl;
 }
-
 
 bool Lldbmi2::addEnvironment(const char* entrystring) {
     logprintf(LOG_NONE, "addEnvironment (0x%x, %s)\n", this, entrystring);
