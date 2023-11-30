@@ -50,6 +50,9 @@ class Lldbmi2 {
 public:
     Lldbmi2();
 
+
+    void help();
+
     bool addEnvironment(const char* entrystring);
 
     ~Lldbmi2();

@@ -29,7 +29,8 @@
 
 #include "events.h"
 
-Lldbmi2::Lldbmi2() {
+Lldbmi2::Lldbmi2()
+{
     logprintf(LOG_TRACE, "Lldbmi2 ctor (0x%x)\n", this);
     SBDebugger::Initialize();
     debugger = SBDebugger::Create();
@@ -37,33 +38,9 @@ Lldbmi2::Lldbmi2() {
     listener = debugger.GetListener();
 }
 
-bool Lldbmi2::addEnvironment(const char* entrystring) {
-    logprintf(LOG_NONE, "addEnvironment (0x%x, %s)\n", this, entrystring);
-    size_t entrysize = strlen(entrystring);
-    if (envpentries >= ENV_ENTRIES - 2) { // keep size for final NULL
-        logprintf(LOG_ERROR, "addEnvironment: envp size (%d) too small\n", sizeof(envs));
-        return false;
-    }
-    if (envspointer - envs + 1 + entrysize >= sizeof(envs)) {
-        logprintf(LOG_ERROR, "addEnvironment: envs size (%d) too small\n", sizeof(envs));
-        return false;
-    }
-    envp[envpentries++] = envspointer;
-    envp[envpentries] = NULL;
-    strcpy(envspointer, entrystring);
-    envspointer += entrysize + 1;
-    logprintf(LOG_ARGS | LOG_RAW, "envp[%d]=%s\n", envpentries - 1, envp[envpentries - 1]);
-    return true;
-}
-
-Lldbmi2::~Lldbmi2() {
-    logprintf(LOG_TRACE, "Lldbmi2 dtor\n");
-    waitProcessListener();
-    SBDebugger::Terminate();
-}
-
-void help(Lldbmi2* pstate) {
-    fprintf(stderr, "%s", pstate->lldbmi2Prompt);
+void Lldbmi2::help()
+{
+    fprintf(stderr, "%s", lldbmi2Prompt);
     fprintf(stderr, "Description:\n");
     fprintf(stderr, "   A MI2 interface to LLDB\n");
     fprintf(stderr, "Authors:\n");
@@ -89,6 +66,32 @@ void help(Lldbmi2* pstate) {
     fprintf(stderr, "   --children children:  Max number of children to check for update (%d).\n", CHILDREN_MAX);
     fprintf(stderr, "   --walkdepth depth:    Max walk depth in search for variables (%d).\n", WALK_DEPTH_MAX);
     fprintf(stderr, "   --changedepth depth:  Max depth to check for updated variables (%d).\n", CHANGE_DEPTH_MAX);
+}
+
+
+bool Lldbmi2::addEnvironment(const char* entrystring) {
+    logprintf(LOG_NONE, "addEnvironment (0x%x, %s)\n", this, entrystring);
+    size_t entrysize = strlen(entrystring);
+    if (envpentries >= ENV_ENTRIES - 2) { // keep size for final NULL
+        logprintf(LOG_ERROR, "addEnvironment: envp size (%d) too small\n", sizeof(envs));
+        return false;
+    }
+    if (envspointer - envs + 1 + entrysize >= sizeof(envs)) {
+        logprintf(LOG_ERROR, "addEnvironment: envs size (%d) too small\n", sizeof(envs));
+        return false;
+    }
+    envp[envpentries++] = envspointer;
+    envp[envpentries] = NULL;
+    strcpy(envspointer, entrystring);
+    envspointer += entrysize + 1;
+    logprintf(LOG_ARGS | LOG_RAW, "envp[%d]=%s\n", envpentries - 1, envp[envpentries - 1]);
+    return true;
+}
+
+Lldbmi2::~Lldbmi2() {
+    logprintf(LOG_TRACE, "Lldbmi2 dtor\n");
+    waitProcessListener();
+    SBDebugger::Terminate();
 }
 
 LIMITS limits;
@@ -203,7 +206,7 @@ int main(int argc, char** argv, char** envp) {
     }
     // check if --interpreter mi2
     else if (!isInterpreter) {
-        help(gpstate);
+        gpstate->help();
         return EXIT_FAILURE;
     }
 
