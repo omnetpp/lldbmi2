@@ -20,13 +20,13 @@ int getNumFrames(SBThread thread) {
 //     "/project_path/test_hello_c/Sources/tests.cpp:33"}
 
 // format a breakpoint description into a GDB string
-char* formatBreakpoint(SBBreakpoint breakpoint, STATE* pstate) {
+char* formatBreakpoint(SBBreakpoint breakpoint, Lldbmi2* pstate) {
     static StringB breakpointdescB(LINE_MAX);
     breakpointdescB.clear();
     return formatBreakpoint(breakpointdescB, breakpoint, pstate);
 }
 
-char* formatBreakpoint(StringB& breakpointdescB, SBBreakpoint breakpoint, STATE* pstate) {
+char* formatBreakpoint(StringB& breakpointdescB, SBBreakpoint breakpoint, Lldbmi2* pstate) {
     logprintf(LOG_TRACE, "formatBreakpoint (0x%x, 0x%x, 0x%x)\n", &breakpointdescB, &breakpoint, pstate);
     // 18^done,bkpt={number="1",type="breakpoint",disp="keep",enabled="y",addr="0x00000001000/00f58",
     //  func="main",file="../Sources/tests.cpp",fullname="/pro/runtime-EclipseApplication/tests/Sources/tests.cpp",

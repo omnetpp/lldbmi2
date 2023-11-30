@@ -27,7 +27,7 @@
 #include "test.h"
 #include "version.h"
 
-void help(STATE* pstate) {
+void help(Lldbmi2* pstate) {
     fprintf(stderr, "%s", pstate->lldbmi2Prompt);
     fprintf(stderr, "Description:\n");
     fprintf(stderr, "   A MI2 interface to LLDB\n");
@@ -57,7 +57,7 @@ void help(STATE* pstate) {
 }
 
 LIMITS limits;
-STATE* gpstate;
+Lldbmi2* gpstate;
 
 int main(int argc, char** argv, char** envp) {
 #ifdef UNLINKED
@@ -68,7 +68,7 @@ int main(int argc, char** argv, char** envp) {
     }
 #endif
 
-    gpstate = new STATE();
+    gpstate = new Lldbmi2();
 
     char commandLine[BIG_LINE_MAX]; // data from cdt
     int isVersion = 0, isInterpreter = 0;

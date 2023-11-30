@@ -45,7 +45,7 @@ struct LIMITS {
 };
 
 // dynamic context
-struct STATE {
+struct Lldbmi2 {
     int ptyfd;
     bool eof;
     bool procstop;

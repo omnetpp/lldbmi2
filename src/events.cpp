@@ -12,7 +12,7 @@ extern LIMITS limits;
 
 static pthread_t sbTID;
 
-void setSignals(STATE* pstate) {
+void setSignals(Lldbmi2* pstate) {
     logprintf(LOG_TRACE, "setSignals (0x%x)\n", pstate);
     SBUnixSignals us = pstate->process.GetUnixSignals();
     if (!limits.istest || true) {
@@ -28,7 +28,7 @@ void setSignals(STATE* pstate) {
     }
 }
 
-void terminateProcess(STATE* pstate, int how) {
+void terminateProcess(Lldbmi2* pstate, int how) {
     logprintf(LOG_TRACE, "terminateProcess (0x%x, 0x%x)\n", pstate, how);
     pstate->procstop = true;
     if (pstate->process.IsValid()) {
@@ -46,7 +46,7 @@ void terminateProcess(STATE* pstate, int how) {
         pstate->eof = true;
 }
 
-int startProcessListener(STATE* pstate) {
+int startProcessListener(Lldbmi2* pstate) {
     pstate->procstop = false;
     logprintf(LOG_TRACE, "startProcessListener (0x%x)\n", pstate);
     int ret = pthread_create(&sbTID, NULL, &processListener, pstate);
@@ -64,7 +64,7 @@ void waitProcessListener() {
 // wait thread
 void* processListener(void* arg) {
     logprintf(LOG_TRACE, "processListener (0x%x)\n", arg);
-    STATE* pstate = (STATE*)arg;
+    Lldbmi2* pstate = (Lldbmi2*)arg;
     SBProcess process = pstate->process;
 
     if (!process.IsValid())
@@ -154,7 +154,7 @@ void* processListener(void* arg) {
     return NULL;
 }
 
-void onStopped(STATE* pstate, SBProcess process) {
+void onStopped(Lldbmi2* pstate, SBProcess process) {
     logprintf(LOG_TRACE, "onStopped (0x%x, 0x%x)\n", pstate, &process);
     //	-3-38-5.140 <<=  |=breakpoint-modified,bkpt={number="breakpoint
     //1",type="breakpoint",disp="del",enabled="y",addr="0x0000000100000f06",func="main",file="tests.c",fullname="tests.c",line="33",thread-groups=["i1"],times="1",original-location="tests.c:33"}\n|
@@ -277,7 +277,7 @@ void onStopped(STATE* pstate, SBProcess process) {
     pstate->isrunning = false;
 }
 
-void checkThreadsLife(STATE* pstate, SBProcess process) {
+void checkThreadsLife(Lldbmi2* pstate, SBProcess process) {
     logprintf(LOG_TRACE, "checkThreadsLife (0x%x, 0x%x)\n", pstate, &process);
     if (!process.IsValid())
         return;

@@ -6,13 +6,13 @@
 #define PRINT_GROUP 2
 #define AND_EXIT 4
 
-void setSignals(STATE* pstate);
-void terminateProcess(STATE* pstate, int how);
-int startProcessListener(STATE* pstate);
+void setSignals(Lldbmi2* pstate);
+void terminateProcess(Lldbmi2* pstate, int how);
+int startProcessListener(Lldbmi2* pstate);
 void waitProcessListener();
 void* processListener(void* arg);
-void onStopped(STATE* pstate, SBProcess process);
-void checkThreadsLife(STATE* pstate, SBProcess process);
+void onStopped(Lldbmi2* pstate, SBProcess process);
+void checkThreadsLife(Lldbmi2* pstate, SBProcess process);
 void updateSelectedThread(SBProcess process);
 
 #endif // EVENTS_H

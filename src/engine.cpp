@@ -20,7 +20,7 @@
 
 extern LIMITS limits;
 
-void initializeSB(STATE* pstate) {
+void initializeSB(Lldbmi2* pstate) {
     logprintf(LOG_TRACE, "initializeSB (0x%x)\n", pstate);
     SBDebugger::Initialize();
     pstate->debugger = SBDebugger::Create();
@@ -38,7 +38,7 @@ void terminateSB() {
 //   decode the line in input
 //   execute the command
 //   respond on stdout
-int fromCDT(STATE* pstate, const char* commandLine, int linesize) // from cdt
+int fromCDT(Lldbmi2* pstate, const char* commandLine, int linesize) // from cdt
 {
     logprintf(LOG_NONE, "fromCDT (0x%x, ..., %d)\n", pstate, linesize);
     StringB cdtcommandB(BIG_LINE_MAX);
@@ -1670,7 +1670,7 @@ int fromCDT(STATE* pstate, const char* commandLine, int linesize) // from cdt
     return dataflag;
 }
 
-bool addEnvironment(STATE* pstate, const char* entrystring) {
+bool addEnvironment(Lldbmi2* pstate, const char* entrystring) {
     logprintf(LOG_NONE, "addEnvironment (0x%x, %s)\n", pstate, entrystring);
     size_t entrysize = strlen(entrystring);
     if (pstate->envpentries >= ENV_ENTRIES - 2) { // keep size for final NULL
@@ -1693,7 +1693,7 @@ bool addEnvironment(STATE* pstate, const char* entrystring) {
 //   get sequence number
 //   convert arguments line in a argv vector
 //   decode optional (--option) arguments
-int evalCDTCommand(STATE* pstate, const char* cdtcommand, CDT_COMMAND* cc) {
+int evalCDTCommand(Lldbmi2* pstate, const char* cdtcommand, CDT_COMMAND* cc) {
     logprintf(LOG_NONE, "evalCDTLine (0x%x, %s, 0x%x)\n", pstate, cdtcommand, cc);
     cc->sequence = 0;
     cc->argc = 0;
