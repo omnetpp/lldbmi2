@@ -58,7 +58,7 @@ int fromCDT(Lldbmi2* pstate, const char* commandLine, int linesize) // from cdt
     }
     // MISCELLANOUS COMMANDS
     else if (strcmp(cc.argv[0], "-gdb-exit") == 0) {
-        terminateProcess(pstate, AND_EXIT);
+        pstate->terminateProcess(AND_EXIT);
     } else if (strcmp(cc.argv[0], "-gdb-version") == 0) {
         cdtprintf("~\"%s\"\n", pstate->gdbPrompt);
         cdtprintf("~\"%s\"\n", pstate->lldbmi2Prompt);
@@ -238,7 +238,7 @@ int fromCDT(Lldbmi2* pstate, const char* commandLine, int linesize) // from cdt
         } else {
             pstate->isrunning = true;
             pstate->process = process;
-            startProcessListener(pstate);
+            pstate->startProcessListener();
             pstate->setSignals();
             cdtprintf("=thread-group-started,id=\"%s\",pid=\"%lld\"\n", pstate->threadgroup, process.GetProcessID());
             checkThreadsLife(pstate, process);
@@ -247,7 +247,7 @@ int fromCDT(Lldbmi2* pstate, const char* commandLine, int linesize) // from cdt
     } else if (strcmp(cc.argv[0], "-target-detach") == 0) {
         // target-detach --thread-group i1
         if (pstate->process.IsValid()) {
-            terminateProcess(pstate, PRINT_THREAD | PRINT_GROUP | AND_EXIT);
+            pstate->terminateProcess(PRINT_THREAD | PRINT_GROUP | AND_EXIT);
             cdtprintf("%d^done\n(gdb)\n", cc.sequence);
         } else
             cdtprintf("%d^error,msg=\"%s\"\n(gdb)\n", cc.sequence, "The program is not being run.");
@@ -285,7 +285,7 @@ int fromCDT(Lldbmi2* pstate, const char* commandLine, int linesize) // from cdt
         } else {
             pstate->isrunning = true;
             pstate->process = process;
-            startProcessListener(pstate);
+            pstate->startProcessListener();
             pstate->setSignals();
             cdtprintf("=thread-group-started,id=\"%s\",pid=\"%lld\"\n", pstate->threadgroup, process.GetProcessID());
             checkThreadsLife(pstate, process);
@@ -444,7 +444,7 @@ int fromCDT(Lldbmi2* pstate, const char* commandLine, int linesize) // from cdt
                         //	logprintf (LOG_INFO, "console kill: send SIGINT\n");
                         //	pstate->process.Signal(SIGINT);
                         logprintf(LOG_INFO, "console kill: terminateProcess\n");
-                        terminateProcess(pstate, PRINT_GROUP | AND_EXIT);
+                        pstate->terminateProcess(PRINT_GROUP | AND_EXIT);
                     }
                 } else
                     cdtprintf("%d^error,msg=\"%s\"\n(gdb)\n", cc.sequence, "The program is not being run.");

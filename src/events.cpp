@@ -10,22 +10,6 @@
 
 extern LIMITS limits;
 
-static pthread_t sbTID;
-
-int startProcessListener(Lldbmi2* pstate) {
-    pstate->procstop = false;
-    logprintf(LOG_TRACE, "startProcessListener (0x%x)\n", pstate);
-    int ret = pthread_create(&sbTID, NULL, &processListener, pstate);
-    if (ret)
-        sbTID = 0;
-    return ret;
-}
-
-void waitProcessListener() {
-    logprintf(LOG_TRACE, "waitProcessListener ()\n");
-    if (sbTID)
-        pthread_join(sbTID, NULL);
-}
 
 // wait thread
 void* processListener(void* arg) {

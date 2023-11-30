@@ -55,7 +55,12 @@ public:
 
     bool addEnvironment(const char* entrystring);
     void setSignals();
+
+    int startProcessListener();
+    void waitProcessListener();
+
     void terminateProcess(int how);
+
     ~Lldbmi2();
 
     int ptyfd;
@@ -82,6 +87,7 @@ public:
     SBListener listener;
     SBTarget target;
     SBLaunchInfo launchInfo = SBLaunchInfo(NULL);
+    pthread_t sbTID;
     int threadids[THREADS_MAX];
 };
 

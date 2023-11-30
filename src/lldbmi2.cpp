@@ -299,6 +299,22 @@ void Lldbmi2::setSignals()
     }
 }
 
+int Lldbmi2::startProcessListener()
+{
+    procstop = false;
+    logprintf(LOG_TRACE, "startProcessListener (0x%x)\n", this);
+    int ret = pthread_create(&sbTID, NULL, &processListener, this);
+    if (ret)
+        sbTID = 0;
+    return ret;
+}
+
+void Lldbmi2::waitProcessListener() {
+    logprintf(LOG_TRACE, "waitProcessListener ()\n");
+    if (sbTID)
+        pthread_join(sbTID, NULL);
+}
+
 void Lldbmi2::terminateProcess(int how)
 {
     logprintf(LOG_TRACE, "terminateProcess (0x%x, 0x%x)\n", this, how);
