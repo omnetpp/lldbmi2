@@ -8,7 +8,7 @@ option(BUILD_TESTS "Build the test programs" OFF)
 option(UNLINKED "Build without linking to lldb library" OFF)
 
 # Set C++ standard
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "Build architectures for OSX" FORCE)
 
