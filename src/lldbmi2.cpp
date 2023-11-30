@@ -27,6 +27,22 @@
 #include "test.h"
 #include "version.h"
 
+#include "events.h"
+
+Lldbmi2::Lldbmi2() {
+    logprintf(LOG_TRACE, "Lldbmi2 ctor (0x%x)\n", this);
+    SBDebugger::Initialize();
+    debugger = SBDebugger::Create();
+    debugger.SetAsync(true);
+    listener = debugger.GetListener();
+}
+
+Lldbmi2::~Lldbmi2() {
+    logprintf(LOG_TRACE, "Lldbmi2 dtor\n");
+    waitProcessListener();
+    SBDebugger::Terminate();
+}
+
 void help(Lldbmi2* pstate) {
     fprintf(stderr, "%s", pstate->lldbmi2Prompt);
     fprintf(stderr, "Description:\n");
@@ -172,7 +188,6 @@ int main(int argc, char** argv, char** envp) {
         return EXIT_FAILURE;
     }
 
-    initializeSB(gpstate);
     signal(SIGINT, signalHandler);
     signal(SIGSTOP, signalHandler);
 
@@ -238,10 +253,10 @@ int main(int argc, char** argv, char** envp) {
 
     if (gpstate->ptyfd != EOF)
         close(gpstate->ptyfd);
-    terminateSB();
 
     logprintf(LOG_INFO, "main exit\n");
     closelogfile();
+    delete gpstate;
 
     return EXIT_SUCCESS;
 }

@@ -45,7 +45,13 @@ struct LIMITS {
 };
 
 // dynamic context
-struct Lldbmi2 {
+class Lldbmi2 {
+
+    public:
+
+    Lldbmi2();
+    ~Lldbmi2();
+
     int ptyfd;
     bool eof;
     bool procstop;

@@ -20,19 +20,6 @@
 
 extern LIMITS limits;
 
-void initializeSB(Lldbmi2* pstate) {
-    logprintf(LOG_TRACE, "initializeSB (0x%x)\n", pstate);
-    SBDebugger::Initialize();
-    pstate->debugger = SBDebugger::Create();
-    pstate->debugger.SetAsync(true);
-    pstate->listener = pstate->debugger.GetListener();
-}
-
-void terminateSB() {
-    logprintf(LOG_TRACE, "terminateSB\n");
-    waitProcessListener();
-    SBDebugger::Terminate();
-}
 
 // command interpreter
 //   decode the line in input
