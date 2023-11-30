@@ -37,6 +37,25 @@ Lldbmi2::Lldbmi2() {
     listener = debugger.GetListener();
 }
 
+bool Lldbmi2::addEnvironment(const char* entrystring) {
+    logprintf(LOG_NONE, "addEnvironment (0x%x, %s)\n", this, entrystring);
+    size_t entrysize = strlen(entrystring);
+    if (envpentries >= ENV_ENTRIES - 2) { // keep size for final NULL
+        logprintf(LOG_ERROR, "addEnvironment: envp size (%d) too small\n", sizeof(envs));
+        return false;
+    }
+    if (envspointer - envs + 1 + entrysize >= sizeof(envs)) {
+        logprintf(LOG_ERROR, "addEnvironment: envs size (%d) too small\n", sizeof(envs));
+        return false;
+    }
+    envp[envpentries++] = envspointer;
+    envp[envpentries] = NULL;
+    strcpy(envspointer, entrystring);
+    envspointer += entrysize + 1;
+    logprintf(LOG_ARGS | LOG_RAW, "envp[%d]=%s\n", envpentries - 1, envp[envpentries - 1]);
+    return true;
+}
+
 Lldbmi2::~Lldbmi2() {
     logprintf(LOG_TRACE, "Lldbmi2 dtor\n");
     waitProcessListener();
@@ -171,7 +190,7 @@ int main(int argc, char** argv, char** envp) {
     int wll = strlen(wl);
     // copy environment for tested program
     for (int ienv = 0; envp[ienv]; ienv++) {
-        addEnvironment(gpstate, envp[ienv]);
+        gpstate->addEnvironment(envp[ienv]);
         if (strncmp(envp[ienv], wl, wll) == 0)
             strcpy(gpstate->project_loc, envp[ienv] + wll);
     }

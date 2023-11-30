@@ -19,7 +19,6 @@ typedef struct {
 // the environment
 
 int fromCDT(Lldbmi2* pstate, const char* line, int linesize);
-bool addEnvironment(Lldbmi2* pstate, const char* entrystring);
 int evalCDTCommand(Lldbmi2* pstate, const char* cdtline, CDT_COMMAND* cc);
 int scanArgs(CDT_COMMAND* cdt_command);
 

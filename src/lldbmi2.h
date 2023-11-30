@@ -47,9 +47,11 @@ struct LIMITS {
 // dynamic context
 class Lldbmi2 {
 
-    public:
-
+public:
     Lldbmi2();
+
+    bool addEnvironment(const char* entrystring);
+
     ~Lldbmi2();
 
     int ptyfd;

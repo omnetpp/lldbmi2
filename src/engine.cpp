@@ -128,7 +128,7 @@ int fromCDT(Lldbmi2* pstate, const char* commandLine, int linesize) // from cdt
                 else
                     snprintf(enventry, sizeof(enventry), "%s%s%s", cc.argv[nextarg], cc.argv[nextarg + 1],
                              cc.argv[nextarg + 2]);
-                addEnvironment(pstate, enventry);
+                pstate->addEnvironment(enventry);
             }
         }
         cdtprintf("%d^done\n(gdb)\n", cc.sequence);
@@ -1655,25 +1655,6 @@ int fromCDT(Lldbmi2* pstate, const char* commandLine, int linesize) // from cdt
         cdtprintf("%d^error,msg=\"%s\"\n(gdb)\n", cc.sequence, "Command unimplemented.");
     }
     return dataflag;
-}
-
-bool addEnvironment(Lldbmi2* pstate, const char* entrystring) {
-    logprintf(LOG_NONE, "addEnvironment (0x%x, %s)\n", pstate, entrystring);
-    size_t entrysize = strlen(entrystring);
-    if (pstate->envpentries >= ENV_ENTRIES - 2) { // keep size for final NULL
-        logprintf(LOG_ERROR, "addEnvironment: envp size (%d) too small\n", sizeof(pstate->envs));
-        return false;
-    }
-    if (pstate->envspointer - pstate->envs + 1 + entrysize >= sizeof(pstate->envs)) {
-        logprintf(LOG_ERROR, "addEnvironment: envs size (%d) too small\n", sizeof(pstate->envs));
-        return false;
-    }
-    pstate->envp[pstate->envpentries++] = pstate->envspointer;
-    pstate->envp[pstate->envpentries] = NULL;
-    strcpy(pstate->envspointer, entrystring);
-    pstate->envspointer += entrysize + 1;
-    logprintf(LOG_ARGS | LOG_RAW, "envp[%d]=%s\n", pstate->envpentries - 1, pstate->envp[pstate->envpentries - 1]);
-    return true;
 }
 
 // decode command line and fill the cc CDT_COMMAND structure
