@@ -11,7 +11,6 @@ class Lldbmi2;
 
 using namespace lldb;
 
-void setSignals(Lldbmi2* pstate);
 void terminateProcess(Lldbmi2* pstate, int how);
 int startProcessListener(Lldbmi2* pstate);
 void waitProcessListener();

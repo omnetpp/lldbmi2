@@ -54,6 +54,7 @@ public:
     void help();
 
     bool addEnvironment(const char* entrystring);
+    void setSignals();
 
     ~Lldbmi2();
 

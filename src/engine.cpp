@@ -239,7 +239,7 @@ int fromCDT(Lldbmi2* pstate, const char* commandLine, int linesize) // from cdt
             pstate->isrunning = true;
             pstate->process = process;
             startProcessListener(pstate);
-            setSignals(pstate);
+            pstate->setSignals();
             cdtprintf("=thread-group-started,id=\"%s\",pid=\"%lld\"\n", pstate->threadgroup, process.GetProcessID());
             checkThreadsLife(pstate, process);
             cdtprintf("%d^done\n(gdb)\n", cc.sequence);
@@ -286,7 +286,7 @@ int fromCDT(Lldbmi2* pstate, const char* commandLine, int linesize) // from cdt
             pstate->isrunning = true;
             pstate->process = process;
             startProcessListener(pstate);
-            setSignals(pstate);
+            pstate->setSignals();
             cdtprintf("=thread-group-started,id=\"%s\",pid=\"%lld\"\n", pstate->threadgroup, process.GetProcessID());
             checkThreadsLife(pstate, process);
             cdtprintf("%d^running\n", cc.sequence);

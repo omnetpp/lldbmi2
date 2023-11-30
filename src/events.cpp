@@ -12,21 +12,6 @@ extern LIMITS limits;
 
 static pthread_t sbTID;
 
-void setSignals(Lldbmi2* pstate) {
-    logprintf(LOG_TRACE, "setSignals (0x%x)\n", pstate);
-    SBUnixSignals us = pstate->process.GetUnixSignals();
-    if (!limits.istest || true) {
-        const char* signame = "SIGINT";
-        int signo = us.GetSignalNumberFromName(signame);
-        logprintf(LOG_NONE, "signals before for %s (%d): suppress=%d, stop=%d, notify=%d\n", signame, signo,
-                  us.GetShouldSuppress(signo), us.GetShouldStop(signo), us.GetShouldNotify(signo));
-        us.SetShouldSuppress(signo, false); // !pass
-        us.SetShouldStop(signo, false);
-        us.SetShouldNotify(signo, true);
-        logprintf(LOG_NONE, "signals after for %s (%d): suppress=%d, stop=%d, notify=%d\n", signame, signo,
-                  us.GetShouldSuppress(signo), us.GetShouldStop(signo), us.GetShouldNotify(signo));
-    }
-}
 
 void terminateProcess(Lldbmi2* pstate, int how) {
     logprintf(LOG_TRACE, "terminateProcess (0x%x, 0x%x)\n", pstate, how);

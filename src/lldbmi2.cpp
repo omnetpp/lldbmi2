@@ -282,6 +282,23 @@ int main(int argc, char** argv, char** envp) {
     return EXIT_SUCCESS;
 }
 
+void Lldbmi2::setSignals()
+{
+    logprintf(LOG_TRACE, "setSignals (0x%x)\n", this);
+    SBUnixSignals us = process.GetUnixSignals();
+    if (!limits.istest || true) {
+        const char* signame = "SIGINT";
+        int signo = us.GetSignalNumberFromName(signame);
+        logprintf(LOG_NONE, "signals before for %s (%d): suppress=%d, stop=%d, notify=%d\n", signame, signo,
+                  us.GetShouldSuppress(signo), us.GetShouldStop(signo), us.GetShouldNotify(signo));
+        us.SetShouldSuppress(signo, false); // !pass
+        us.SetShouldStop(signo, false);
+        us.SetShouldNotify(signo, true);
+        logprintf(LOG_NONE, "signals after for %s (%d): suppress=%d, stop=%d, notify=%d\n", signame, signo,
+                  us.GetShouldSuppress(signo), us.GetShouldStop(signo), us.GetShouldNotify(signo));
+    }
+}
+
 // log an argument and return the argument
 const char* logarg(const char* arg) {
     addlog(arg);
