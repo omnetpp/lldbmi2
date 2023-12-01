@@ -46,7 +46,7 @@ void* processListener(void* arg) {
                     break;
                 case eStateExited:
                     logprintf(LOG_EVENTS, "eStateExited\n");
-                    checkThreadsLife(pstate, process); // not useful. threads are not stopped before exit
+                    pstate->checkThreadsLife(); // not useful. threads are not stopped before exit
                     pstate->terminateProcess(PRINT_GROUP);
                     // cdtprintf ("*stopped,reason=\"exited-normally\"\n(gdb)\n");
                     logprintf(LOG_INFO, "processlistener. eof=%d\n", pstate->eof);
@@ -104,49 +104,6 @@ void* processListener(void* arg) {
     return NULL;
 }
 
-void checkThreadsLife(Lldbmi2* pstate, SBProcess process) {
-    logprintf(LOG_TRACE, "checkThreadsLife (0x%x, 0x%x)\n", pstate, &process);
-    if (!process.IsValid())
-        return;
-    SBThread thread;
-    const size_t nthreads = process.GetNumThreads();
-    int indexlist;
-    bool stillalive[THREADS_MAX];
-    for (indexlist = 0; indexlist < THREADS_MAX; indexlist++) // init live list
-        stillalive[indexlist] = false;
-    for (size_t indexthread = 0; indexthread < nthreads; indexthread++) {
-        SBThread thread = process.GetThreadAtIndex(indexthread);
-        if (thread.IsValid()) {
-            int stopreason = thread.GetStopReason();
-            int threadindexid = thread.GetIndexID();
-            logprintf(LOG_NONE, "thread threadindexid=%d stopreason=%d\n", threadindexid, stopreason);
-            for (indexlist = 0; indexlist < THREADS_MAX; indexlist++) {
-                if (threadindexid == pstate->threadids[indexlist]) // existing thread
-                    break;
-            }
-            if (indexlist < THREADS_MAX) // existing thread. mark as alive
-                stillalive[indexlist] = true;
-            else { // new thread. add to the thread list list
-                for (indexlist = 0; indexlist < THREADS_MAX; indexlist++) {
-                    if (pstate->threadids[indexlist] == 0) {
-                        pstate->threadids[indexlist] = threadindexid;
-                        stillalive[indexlist] = true;
-                        cdtprintf("=thread-created,id=\"%d\",group-id=\"%s\"\n", threadindexid, pstate->threadgroup);
-                        break;
-                    }
-                }
-                if (indexlist >= THREADS_MAX)
-                    logprintf(LOG_ERROR, "threads table too small (%d)\n", THREADS_MAX);
-            }
-        }
-    }
-    for (indexlist = 0; indexlist < THREADS_MAX; indexlist++) { // find finished threads
-        if (pstate->threadids[indexlist] > 0 && !stillalive[indexlist]) {
-            cdtprintf("=thread-exited,id=\"%d\",group-id=\"%s\"\n", pstate->threadids[indexlist], pstate->threadgroup);
-            pstate->threadids[indexlist] = 0;
-        }
-    }
-}
 
 void updateSelectedThread(SBProcess process) {
     logprintf(LOG_TRACE, "updateSelectedThread (0x%x)\n", &process);

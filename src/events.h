@@ -13,7 +13,7 @@ using namespace lldb;
 
 void* processListener(void* arg);
 
-void checkThreadsLife(Lldbmi2* pstate, SBProcess process);
+
 void updateSelectedThread(SBProcess process);
 
 #endif // EVENTS_H

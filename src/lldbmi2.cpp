@@ -538,7 +538,7 @@ int Lldbmi2::fromCDT(const char* commandLine, int linesize) // from cdt
             startProcessListener();
             setSignals();
             cdtprintf("=thread-group-started,id=\"%s\",pid=\"%lld\"\n", threadgroup, process.GetProcessID());
-            checkThreadsLife(this, process);
+            checkThreadsLife();
             cdtprintf("%d^done\n(gdb)\n", cc.sequence);
         }
     } else if (strcmp(cc.argv[0], "-target-detach") == 0) {
@@ -585,7 +585,7 @@ int Lldbmi2::fromCDT(const char* commandLine, int linesize) // from cdt
             startProcessListener();
             setSignals();
             cdtprintf("=thread-group-started,id=\"%s\",pid=\"%lld\"\n", threadgroup, process.GetProcessID());
-            checkThreadsLife(this, process);
+            checkThreadsLife();
             cdtprintf("%d^running\n", cc.sequence);
             cdtprintf("*running,thread-id=\"all\"\n(gdb)\n");
         }
@@ -2021,7 +2021,8 @@ int Lldbmi2::evalCDTCommand(const char* cdtcommand, CDT_COMMAND* cc)
     return field;
 }
 
-void Lldbmi2::onStopped() {
+void Lldbmi2::onStopped()
+{
     logprintf(LOG_TRACE, "onStopped (0x%x, 0x%x)\n", this, &process);
     //	-3-38-5.140 <<=  |=breakpoint-modified,bkpt={number="breakpoint
     //1",type="breakpoint",disp="del",enabled="y",addr="0x0000000100000f06",func="main",file="tests.c",fullname="tests.c",line="33",thread-groups=["i1"],times="1",original-location="tests.c:33"}\n|
@@ -2031,7 +2032,7 @@ void Lldbmi2::onStopped() {
     //|*stopped,reason="breakpoint-hit",disp="keep",bkptno="1",frame={addr="0000000000000f06",func="main",args=[],file="tests.c",fullname="/project_path/tests/Debug/../Sources/tests.c",line="33"},thread-id="1",stopped-threads="all"(gdb)\n|
     //                    *stopped,reason="signal-received",signal-name="SIGSEGV",signal-meaning="Segmentation
     //                    fault",frame={addr="0x0000000100000f7b",func="main",args=[],file="../Sources/tests.cpp",fullname="/project_path/test_hello_cpp/Sources/tests.cpp",line="44"},thread-id="1",stopped-threads="all"
-    checkThreadsLife(this, process);
+    checkThreadsLife();
     updateSelectedThread(process); // search which thread is stopped
     SBTarget target = process.GetTarget();
     SBThread thread = process.GetSelectedThread();
@@ -2142,6 +2143,51 @@ void Lldbmi2::onStopped() {
     } else
         logprintf(LOG_WARN, "unexpected stop reason %d\n", stopreason);
     isrunning = false;
+}
+
+void Lldbmi2::checkThreadsLife()
+{
+    logprintf(LOG_TRACE, "checkThreadsLife (0x%x, 0x%x)\n", this, &process);
+    if (!process.IsValid())
+        return;
+    SBThread thread;
+    const size_t nthreads = process.GetNumThreads();
+    int indexlist;
+    bool stillalive[THREADS_MAX];
+    for (indexlist = 0; indexlist < THREADS_MAX; indexlist++) // init live list
+        stillalive[indexlist] = false;
+    for (size_t indexthread = 0; indexthread < nthreads; indexthread++) {
+        SBThread thread = process.GetThreadAtIndex(indexthread);
+        if (thread.IsValid()) {
+            int stopreason = thread.GetStopReason();
+            int threadindexid = thread.GetIndexID();
+            logprintf(LOG_NONE, "thread threadindexid=%d stopreason=%d\n", threadindexid, stopreason);
+            for (indexlist = 0; indexlist < THREADS_MAX; indexlist++) {
+                if (threadindexid == threadids[indexlist]) // existing thread
+                    break;
+            }
+            if (indexlist < THREADS_MAX) // existing thread. mark as alive
+                stillalive[indexlist] = true;
+            else { // new thread. add to the thread list list
+                for (indexlist = 0; indexlist < THREADS_MAX; indexlist++) {
+                    if (threadids[indexlist] == 0) {
+                        threadids[indexlist] = threadindexid;
+                        stillalive[indexlist] = true;
+                        cdtprintf("=thread-created,id=\"%d\",group-id=\"%s\"\n", threadindexid, threadgroup);
+                        break;
+                    }
+                }
+                if (indexlist >= THREADS_MAX)
+                    logprintf(LOG_ERROR, "threads table too small (%d)\n", THREADS_MAX);
+            }
+        }
+    }
+    for (indexlist = 0; indexlist < THREADS_MAX; indexlist++) { // find finished threads
+        if (threadids[indexlist] > 0 && !stillalive[indexlist]) {
+            cdtprintf("=thread-exited,id=\"%d\",group-id=\"%s\"\n", threadids[indexlist], threadgroup);
+            threadids[indexlist] = 0;
+        }
+    }
 }
 
 void Lldbmi2::terminateProcess(int how)

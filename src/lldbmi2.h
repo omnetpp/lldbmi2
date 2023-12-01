@@ -69,6 +69,8 @@ public:
 
     void onStopped();
 
+    void checkThreadsLife();
+
     void terminateProcess(int how);
 
     ~Lldbmi2();
