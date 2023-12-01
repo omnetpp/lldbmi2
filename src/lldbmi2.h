@@ -59,6 +59,8 @@ public:
     int startProcessListener();
     void waitProcessListener();
 
+    int fromCDT(const char* line, int linesize);
+
     void terminateProcess(int how);
 
     ~Lldbmi2();
