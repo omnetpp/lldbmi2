@@ -1985,7 +1985,7 @@ int Lldbmi2::evalCDTCommand(const char* cdtcommand, CDT_COMMAND* cc)
     cc->threadgroup[0] = '\0';
     cc->thread = cc->frame = cc->available = cc->all = -1;
 
-    fields = scanArgs(cc);
+    fields = cc->scanArgs();
 
     int field;
     for (field = 1; field < fields; field++) { // arg 0 is the command

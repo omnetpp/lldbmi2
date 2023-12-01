@@ -5,7 +5,9 @@
 
 #define MAX_ARGS 200
 
-typedef struct {
+class CDT_COMMAND {
+
+public:
     int sequence;
     char arguments[LINE_MAX];
     int argc;
@@ -15,9 +17,9 @@ typedef struct {
     int frame;
     int available;
     int all;
-} CDT_COMMAND;
-// the environment
 
-int scanArgs(CDT_COMMAND* cdt_command);
+    int scanArgs();
+};
+
 
 #endif // ENGINE_H

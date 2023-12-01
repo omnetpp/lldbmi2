@@ -22,12 +22,12 @@ extern LIMITS limits;
 
 // convert argument line in a argv vector
 // take care of "
-int scanArgs(CDT_COMMAND* cc) {
-    logprintf(LOG_TRACE, "scanArgs (0x%x)\n", cc);
-    cc->argc = 0;
-    char *pa = cc->arguments, *ps;
+int CDT_COMMAND::scanArgs() {
+    logprintf(LOG_TRACE, "scanArgs (0x%x)\n", this);
+    argc = 0;
+    char *pa = arguments, *ps;
     while (*pa) {
-        if (cc->argc >= MAX_ARGS - 2) { // keep place for final NULL
+        if (argc >= MAX_ARGS - 2) { // keep place for final NULL
             logprintf(LOG_ERROR, "arguments table too small (%d)\n", MAX_ARGS);
             break;
         }
@@ -52,8 +52,8 @@ int scanArgs(CDT_COMMAND* cc) {
             if (isspace(*pa))
                 *pa++ = '\0';
         }
-        cc->argv[cc->argc++] = ps;
+        argv[argc++] = ps;
     }
-    cc->argv[cc->argc] = NULL;
-    return cc->argc;
+    argv[argc] = NULL;
+    return argc;
 }
