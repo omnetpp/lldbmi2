@@ -7,7 +7,7 @@
 #include <cstring>
 #include <pthread.h>
 #include <unistd.h>
-
+#include <cstdint>
 /////////////////////////////
 
 typedef struct {
