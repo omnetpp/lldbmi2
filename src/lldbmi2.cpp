@@ -2021,6 +2021,128 @@ int Lldbmi2::evalCDTCommand(const char* cdtcommand, CDT_COMMAND* cc)
     return field;
 }
 
+void Lldbmi2::onStopped() {
+    logprintf(LOG_TRACE, "onStopped (0x%x, 0x%x)\n", this, &process);
+    //	-3-38-5.140 <<=  |=breakpoint-modified,bkpt={number="breakpoint
+    //1",type="breakpoint",disp="del",enabled="y",addr="0x0000000100000f06",func="main",file="tests.c",fullname="tests.c",line="33",thread-groups=["i1"],times="1",original-location="tests.c:33"}\n|
+    //	-3-38-5.140 <<=  |*stopped,reason="breakpoint-hit",disp="keep",bkptno="breakpoint
+    //1",frame={addr="0x0000000100000f06",func="main",args=[],file="tests.c",fullname="tests.c",line="33"},thread-id="1",stopped-threads="all"\n|
+    //	-3-40-7.049 <<=
+    //|*stopped,reason="breakpoint-hit",disp="keep",bkptno="1",frame={addr="0000000000000f06",func="main",args=[],file="tests.c",fullname="/project_path/tests/Debug/../Sources/tests.c",line="33"},thread-id="1",stopped-threads="all"(gdb)\n|
+    //                    *stopped,reason="signal-received",signal-name="SIGSEGV",signal-meaning="Segmentation
+    //                    fault",frame={addr="0x0000000100000f7b",func="main",args=[],file="../Sources/tests.cpp",fullname="/project_path/test_hello_cpp/Sources/tests.cpp",line="44"},thread-id="1",stopped-threads="all"
+    checkThreadsLife(this, process);
+    updateSelectedThread(process); // search which thread is stopped
+    SBTarget target = process.GetTarget();
+    SBThread thread = process.GetSelectedThread();
+    if (!thread.IsValid()) {
+        logprintf(LOG_ERROR, "thread invalid on event eStateStopped\n");
+        return;
+    }
+    int stopreason = thread.GetStopReason();
+    //	logprintf (LOG_EVENTS, "stopreason=%d\n", stopreason);
+    if (stopreason == eStopReasonBreakpoint || stopreason == eStopReasonPlanComplete) {
+        int bpid = 0;
+        const char* dispose = "keep";
+        char reasondesc[LINE_MAX];
+        if (stopreason == eStopReasonBreakpoint) {
+            if (thread.GetStopReasonDataCount() > 0) {
+                int bpid = thread.GetStopReasonDataAtIndex(0);
+                SBBreakpoint breakpoint = target.FindBreakpointByID(bpid);
+                if (breakpoint.IsOneShot())
+                    dispose = "del";
+                char* breakpointdesc = formatBreakpoint(breakpoint, this);
+                cdtprintf("=breakpoint-modified,bkpt=%s\n", breakpointdesc);
+                snprintf(reasondesc, sizeof(reasondesc), "reason=\"breakpoint-hit\",disp=\"%s\",bkptno=\"%d\",",
+                         dispose, bpid);
+            } else
+                snprintf(reasondesc, sizeof(reasondesc), "reason=\"function-finished\",");
+        } else
+            reasondesc[0] = '\0';
+        SBFrame frame = thread.GetSelectedFrame();
+        if (!frame.IsValid()) {
+            logprintf(LOG_ERROR, "frame invalid on event eStateStopped (eStopReasonBreakpoint)\n");
+            return;
+        }
+        char* framedesc = formatFrame(frame, WITH_ARGS);
+        int threadindexid = thread.GetIndexID();
+        cdtprintf("*stopped,%s%s,thread-id=\"%d\",stopped-threads=\"all\"\n(gdb)\n", reasondesc, framedesc,
+                  threadindexid);
+        //	cdtprintf
+        //("*stopped,reason=\"breakpoint-hit\",disp=\"keep\",bkptno=\"1\",frame={addr=\"0x0000000100000f06\",func=\"main\",args=[],file=\"../Sources/tests.c\",fullname=\"/project_path/tests/Sources/tests.c\",line=\"33\"},thread-id=\"1\",stopped-threads=\"all\"\n(gdb)
+        //\n");
+        if (strcmp(dispose, "del") == 0) {
+            target.BreakpointDelete(bpid);
+            cdtprintf("=breakpoint-deleted,id=\"%d\"\n", bpid);
+        }
+    } else if (stopreason == eStopReasonWatchpoint) {
+        if (thread.GetStopReasonDataCount() > 0) {
+            int wpid = thread.GetStopReasonDataAtIndex(0);
+            SBWatchpoint watch = target.FindWatchpointByID(wpid);
+            cdtprintf("*stopped,reason=\"watchpoint-trigger\",wpt={number=\"%d\",exp=\"%p\"},", watch.GetID(),
+                      watch.GetWatchAddress());
+            SBStream str;
+            watch.GetDescription(str, eDescriptionLevelVerbose);
+            const char* desc = str.GetData();
+            uint64_t oldValue = 0, newValue = 0;
+            const char* s = strstr(desc, "old value:");
+#ifdef __APPLE__
+            sscanf(s, "%*[^0-9]%lli", &oldValue);
+#else
+            sscanf(s, "%*[^0-9]%lu", &oldValue);
+#endif
+            s = strstr(desc, "new value:");
+#ifdef __APPLE__
+            sscanf(s, "%*[^0-9]%lli", &newValue);
+#else
+            sscanf(s, "%*[^0-9]%lu", &newValue);
+#endif
+            cdtprintf("value={old=\"%llu\",new=\"%llu\"},", oldValue, newValue);
+            SBFrame frame = thread.GetSelectedFrame();
+            SBLineEntry lentry = frame.GetLineEntry();
+            SBFileSpec fspec = lentry.GetFileSpec();
+            cdtprintf("frame={func=\"%s\",args=[],file=\"%s\",line=\"%d\"}\n(gdb)\n", frame.GetFunctionName(),
+                      fspec.GetFilename(), lentry.GetLine());
+        } else
+            cdtprintf("*stopped,reason=\"watchpoint-trigger\"}\n(gdb)\n");
+    } else if (stopreason == eStopReasonSignal) {
+        // raised when attaching to a process
+        // raised when program crashed
+        int stopreason = thread.GetStopReasonDataAtIndex(0);
+        SBUnixSignals unixsignals = process.GetUnixSignals();
+        const char* signalname = unixsignals.GetSignalAsCString(stopreason);
+        char reasondesc[LINE_MAX];
+        snprintf(reasondesc, sizeof(reasondesc), "reason=\"signal-received\",signal-name=\"%s\",", signalname);
+        SBFrame frame = thread.GetSelectedFrame();
+        if (!frame.IsValid()) {
+            logprintf(LOG_ERROR, "frame invalid on event eStateStopped (eStopReasonSignal)\n");
+            return;
+        }
+        char* framedesc = formatFrame(frame, WITH_ARGS);
+        int threadindexid = thread.GetIndexID();
+        // signal-name="SIGSEGV",signal-meaning="Segmentation fault"
+        cdtprintf("*stopped,%s%s,thread-id=\"%d\",stopped-threads=\"all\"\n(gdb)\n", reasondesc, framedesc,
+                  threadindexid);
+        // *stopped,reason="signal-received",signal-name="SIGSEGV",signal-meaning="Segmentation
+        // fault",frame={addr="0x0000000100000f7b",func="main",args=[],file="../Sources/tests.cpp",fullname="/project_path/test_hello_cpp/Sources/tests.cpp",line="44"},thread-id="1",stopped-threads="all"
+    } else if (stopreason == eStopReasonNone) {
+        // raised when a thread different from the selected thread stops
+    } else if (stopreason == eStopReasonInvalid) {
+        // raised when the program exits
+    } else if (stopreason == eStopReasonException) {
+        //  "*stopped,reason=\"exception-received\",exception=\"%s\",thread-id=\"%d\",stopped-threads=\"all\""
+        char exceptiondesc[LINE_MAX];
+        thread.GetStopDescription(exceptiondesc, LINE_MAX);
+        writelog((ptyfd != EOF) ? ptyfd : STDOUT_FILENO, exceptiondesc, strlen(exceptiondesc));
+        writelog((ptyfd != EOF) ? ptyfd : STDOUT_FILENO, "\n", 1);
+        char reasondesc[LINE_MAX + 50];
+        snprintf(reasondesc, sizeof(reasondesc), "reason=\"exception-received\",exception=\"%s\",", exceptiondesc);
+        int threadindexid = thread.GetIndexID();
+        cdtprintf("*stopped,%sthread-id=\"%d\",stopped-threads=\"all\"\n(gdb)\n", reasondesc, threadindexid);
+    } else
+        logprintf(LOG_WARN, "unexpected stop reason %d\n", stopreason);
+    isrunning = false;
+}
 
 void Lldbmi2::terminateProcess(int how)
 {

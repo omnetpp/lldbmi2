@@ -67,6 +67,8 @@ public:
     int evalCDTCommand(const char* cdtcommand, CDT_COMMAND* cc);
 
 
+    void onStopped();
+
     void terminateProcess(int how);
 
     ~Lldbmi2();
