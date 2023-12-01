@@ -350,7 +350,7 @@ int Lldbmi2::fromCDT(const char* commandLine, int linesize) // from cdt
     } else
         return WAIT_DATA;
 
-    int nextarg = evalCDTCommand(this, cdtcommandB.c_str(), &cc);
+    int nextarg = evalCDTCommand(cdtcommandB.c_str(), &cc);
     if (nextarg == 0) {
         // no-op
     }
@@ -1953,6 +1953,74 @@ int Lldbmi2::fromCDT(const char* commandLine, int linesize) // from cdt
     }
     return dataflag;
 }
+
+
+// decode command line and fill the cc CDT_COMMAND structure
+//   get sequence number
+//   convert arguments line in a argv vector
+//   decode optional (--option) arguments
+int Lldbmi2::evalCDTCommand(const char* cdtcommand, CDT_COMMAND* cc)
+{
+    logprintf(LOG_NONE, "evalCDTLine (0x%x, %s, 0x%x)\n", this, cdtcommand, cc);
+    cc->sequence = 0;
+    cc->argc = 0;
+    cc->arguments[0] = '\0';
+    if (cdtcommand[0] == '\0') // just ENTER
+        return 0;
+    // decode command with sequence number. ^\n should be ^\0
+    int fields = sscanf(cdtcommand, "%d%[^\n]", &cc->sequence, cc->arguments);
+    if (fields == 0) {
+        // try decode command without sequence number. ^\n should be ^\0
+        fields = sscanf(cdtcommand, "%[^\n]", cc->arguments);
+        if (fields != 1)
+            return 0;
+        cc->sequence = 0;
+    } else if (fields < 2) {
+        logprintf(LOG_WARN, "invalid command format: ");
+        logdata(LOG_NOHEADER, cdtcommand, strlen(cdtcommand));
+        cdtprintf("%d^error,msg=\"%s\"\n(gdb)\n", cc->sequence, "invalid command format.");
+        return 0;
+    }
+
+    cc->threadgroup[0] = '\0';
+    cc->thread = cc->frame = cc->available = cc->all = -1;
+
+    fields = scanArgs(cc);
+
+    int field;
+    for (field = 1; field < fields; field++) { // arg 0 is the command
+        if (strcmp(cc->argv[field], "--thread-group") == 0) {
+            strlcpy(cc->threadgroup, cc->argv[++field], sizeof(cc->threadgroup));
+            strlcpy(threadgroup, cc->threadgroup, sizeof(this));
+        } else if (strcmp(cc->argv[field], "--thread") == 0) {
+            int actual_thread = cc->thread;
+            sscanf(cc->argv[++field], "%d", &cc->thread);
+            if (cc->thread != actual_thread && cc->thread >= 0)
+                process.SetSelectedThreadByIndexID(cc->thread);
+        } else if (strcmp(cc->argv[field], "--frame") == 0) {
+            int actual_frame = cc->frame;
+            sscanf(cc->argv[++field], "%d", &cc->frame);
+            if (cc->frame != actual_frame && cc->frame >= 0) {
+                SBThread thread = process.GetSelectedThread();
+                if (thread.IsValid())
+                    thread.SetSelectedFrame(cc->frame);
+                else
+                    cdtprintf("%d^error,msg=\"%s\"\n(gdb)\n", cc->sequence, "Can not select frame. thread is invalid.");
+            }
+        } else if (strcmp(cc->argv[field], "--available") == 0)
+            cc->available = 1;
+        else if (strcmp(cc->argv[field], "--all") == 0)
+            cc->all = 1;
+        else if (strncmp(cc->argv[field], "--", 2) == 0) {
+            logprintf(LOG_WARN, "unexpected qualifier %s\n", cc->argv[field]);
+            break;
+        } else
+            break;
+    }
+
+    return field;
+}
+
 
 void Lldbmi2::terminateProcess(int how)
 {

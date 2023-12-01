@@ -16,8 +16,11 @@ using namespace lldb;
 #include <cstring>
 #include <unistd.h>
 
+
 #include "strlxxx.h"
 #endif
+
+#include "engine.h"
 #include "stringb.h"
 
 #define WAIT_DATA 0
@@ -60,6 +63,9 @@ public:
     void waitProcessListener();
 
     int fromCDT(const char* line, int linesize);
+
+    int evalCDTCommand(const char* cdtcommand, CDT_COMMAND* cc);
+
 
     void terminateProcess(int how);
 
