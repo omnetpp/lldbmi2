@@ -221,7 +221,6 @@ int main(int argc, char** argv, char** envp) {
     FD_ZERO(&set);
     // main loop
     while (!gpstate->eof) {
-        logprintf(LOG_INFO, "main loop\n");
         // get inputs
         timeval timeout;
         timeout.tv_sec = 0;
