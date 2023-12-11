@@ -370,10 +370,9 @@ int Lldbmi2::fromCDT(const char* commandLine, int linesize) // from cdt
         // environment-cd /project_path/tests
         char path[PATH_MAX];
         snprintf(path, sizeof(path), cc.argv[nextarg], project_loc);
+        chdir(path);
         if (strstr(cc.argv[nextarg], "%s") != NULL)
             logprintf(LOG_VARS, "%%s -> %s\n", path);
-        launchInfo.SetWorkingDirectory(path);
-        logprintf(LOG_NONE, "cwd=%s pwd=%s\n", path, launchInfo.GetWorkingDirectory());
         cdtprintf("%d^done\n(gdb)\n", cc.sequence);
     } else if (strcmp(cc.argv[0], "unset") == 0) {
         // unset env
