@@ -464,18 +464,6 @@ char* formatChangedList(StringB& changedescB, SBValue var, bool& separatorvisibl
     var.GetSummary(); // required to get value to activate changes
     SBType vartype = var.GetType();
     int varnumchildren = var.GetNumChildren();
-    if (vartype.IsReferenceType() && varnumchildren == 1) {
-        // use child if reference. class (*) [] format
-        logprintf(LOG_DEBUG, "formatValue: special case class (*) []\n");
-        SBValue child = var.GetChildAtIndex(0);
-        if (child.IsValid() && var.GetError().Success()) {
-            child.SetPreferSyntheticValue(false);
-            var = child;
-            vartype = var.GetType();
-            varnumchildren = var.GetNumChildren();
-        }
-    }
-    //	int varandchildrenchanged = updateVarState(var, limits.change_depth_max);
     int varchanged = var.GetValueDidChange();
     if (varchanged) {
         const char* separator = separatorvisible ? "," : "";
@@ -734,18 +722,6 @@ char* formatValue(StringB& vardescB, SBValue var, VariableDetails details) {
               getNameForBasicType(vartype.GetBasicType()), vartype.GetByteSize(),
               getNameForTypeClass(vartype.GetPointeeType().GetTypeClass()),
               getNameForBasicType(vartype.GetPointeeType().GetBasicType()), vartype.GetPointeeType().GetByteSize());
-    int varnumchildren = var.GetNumChildren();
-    if (vartype.IsReferenceType() && varnumchildren == 1) {
-        // use child if reference. class (*) [] format
-        logprintf(LOG_DEBUG, "formatValue: special case class (*) []\n");
-        SBValue child = var.GetChildAtIndex(0);
-        if (child.IsValid() && var.GetError().Success()) {
-            child.SetPreferSyntheticValue(false);
-            var = child;
-            vartype = var.GetType();
-            varnumchildren = var.GetNumChildren();
-        }
-    }
     const char* varname = getName(var);
     static StringB summarydescB(BIG_LINE_MAX);
     summarydescB.clear(); // clear previous buffer content

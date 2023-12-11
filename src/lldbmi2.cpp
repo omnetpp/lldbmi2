@@ -1108,9 +1108,6 @@ int Lldbmi2::fromCDT(const char* commandLine, int linesize) // from cdt
                         else
                             formatValue(vardescB, var, FULL_SUMMARY); // was NO_SUMMARY
                         char* vardesc = vardescB.c_str();
-                        if (vartype.IsReferenceType() &&
-                            varnumchildren == 1) // correct numchildren and value if reference
-                            --varnumchildren;
                         cdtprintf("%d^done,name=\"%s\",numchild=\"%d\",value=\"%s\","
                                   "type=\"%s\",thread-id=\"%d\",has_more=\"0\"\n(gdb)\n",
                                   cc.sequence, expressionpathdesc, varnumchildren, vardesc,
