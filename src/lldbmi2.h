@@ -49,6 +49,11 @@ struct LIMITS {
 
 // dynamic context
 class Lldbmi2 {
+    void handleBreakpointCommand(CDT_COMMAND& cc, int nextarg);
+    void handleVariableCommand(CDT_COMMAND& cc, int nextarg);
+    void handleStackCommand(CDT_COMMAND& cc, int nextarg);
+    void handleExecCommand(CDT_COMMAND& cc, int nextarg);
+    void handleDataCommand(CDT_COMMAND& cc, int nextarg);
 
 public:
     Lldbmi2();
