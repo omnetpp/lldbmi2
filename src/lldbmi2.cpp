@@ -116,7 +116,7 @@ int main(int argc, char** argv, char** envp) {
     unsigned int logmask = LOG_ALL;
 
     gpstate->ptyfd = EOF;
-    gpstate->gdbPrompt = "GNU gdb (GDB) 7.7.1\n";
+    gpstate->gdbPrompt = "GNU gdb (GDB) 7.12.1\n";
     snprintf(gpstate->lldbmi2Prompt, NAME_MAX, "lldbmi2 version %s\n", LLDBMI2_VERSION);
     gpstate->cdtbufferB.grow(BIG_LINE_MAX);
 
@@ -131,6 +131,7 @@ int main(int argc, char** argv, char** envp) {
         if (strcmp(argv[narg], "--version") == 0)
             isVersion = 1;
         else if (strcmp(argv[narg], "--interpreter") == 0) {
+            logprintf(LOG_INFO, "arg: interpreter: %s\n", argv[narg + 1]);
             isInterpreter = 1;
             if (++narg < argc)
                 logarg(argv[narg]);
@@ -138,6 +139,29 @@ int main(int argc, char** argv, char** envp) {
             isInterpreter = 1;
         else if ((strcmp(argv[narg], "-i") == 0) && (strcmp(argv[narg + 1], "mi") == 0))
             isInterpreter = 1;
+        else if (strcmp(argv[narg], "-ex") == 0) {
+            const char *prefix = "new-ui mi ";
+            int prefixLen = strlen(prefix);
+            if (strncmp(argv[narg+1], prefix, prefixLen) == 0) {
+                const char *ptyFile = argv[narg+1] + prefixLen;
+                gpstate->ptyfd = open(ptyFile, O_RDWR);
+            // set pty in raw mode
+            struct termios t;
+            if (tcgetattr(gpstate->ptyfd, &t) != -1) {
+                // Noncanonical mode, disable signals, extended input processing, and echoing
+                t.c_lflag &= ~(ICANON | ISIG | IEXTEN | ECHO);
+                // Disable special handling of CR, NL, and BREAK.
+                // No 8th-bit stripping or parity error handling
+                // Disable START/STOP output flow control
+                t.c_iflag &= ~(BRKINT | ICRNL | IGNBRK | IGNCR | INLCR | INPCK | ISTRIP | IXON | PARMRK);
+                // Disable all output processing
+                t.c_oflag &= ~OPOST;
+                t.c_cc[VMIN] = 1;  // Character-at-a-time input
+                t.c_cc[VTIME] = 0; // with blocking
+                tcsetattr(gpstate->ptyfd, TCSAFLUSH, &t);
+            }
+            }
+        }
         else if (strcmp(argv[narg], "--arch") == 0) {
             if (++narg < argc)
                 strcpy(gpstate->arch, logarg(argv[narg]));
@@ -153,12 +177,25 @@ int main(int argc, char** argv, char** envp) {
                 strcpy(gpstate->test_script, logarg(argv[narg])); // no spaces allowed in the name
             if (gpstate->test_script[0])
                 setTestScript(gpstate->test_script);
-        } else if (strcmp(argv[narg], "--log") == 0)
+        } else if (strcmp(argv[narg], "--log") == 0) {
             isLog = 1;
-        else if (strcmp(argv[narg], "--logmask") == 0) {
+
+        } else if (strcmp(argv[narg], "--logmask") == 0) {
             isLog = 1;
             if (++narg < argc)
                 sscanf(logarg(argv[narg]), "%x", &logmask);
+
+
+        // create a log filename from program name and open log file
+        if (isLog) {
+            if (limits.istest)
+                setlogfile(gpstate->logfilename, sizeof(gpstate->logfilename), argv[0], "lldbmi2t.log");
+            else
+                setlogfile(gpstate->logfilename, sizeof(gpstate->logfilename), argv[0], "lldbmi2.log");
+            openlogfile(gpstate->logfilename);
+            setlogmask(logmask);
+        }
+
         } else if (strcmp(argv[narg], "--frames") == 0) {
             if (++narg < argc)
                 sscanf(logarg(argv[narg]), "%d", &limits.frames_max);
@@ -174,15 +211,6 @@ int main(int argc, char** argv, char** envp) {
         }
     }
 
-    // create a log filename from program name and open log file
-    if (isLog) {
-        if (limits.istest)
-            setlogfile(gpstate->logfilename, sizeof(gpstate->logfilename), argv[0], "lldbmi2t.log");
-        else
-            setlogfile(gpstate->logfilename, sizeof(gpstate->logfilename), argv[0], "lldbmi2.log");
-        openlogfile(gpstate->logfilename);
-        setlogmask(logmask);
-    }
 
     // log program args
     addlog("\n");
@@ -215,7 +243,12 @@ int main(int argc, char** argv, char** envp) {
     signal(SIGINT, signalHandler);
     signal(SIGSTOP, signalHandler);
 
+    logprintf(LOG_TRACE, "printing initial prompt\n");
     cdtprintf("(gdb)\n");
+    logprintf(LOG_TRACE, "printed initial prompt\n");
+
+    writelog(STDOUT_FILENO, gpstate->gdbPrompt, strlen(gpstate->gdbPrompt));
+    writelog(STDOUT_FILENO, gpstate->lldbmi2Prompt, strlen(gpstate->lldbmi2Prompt));
 
     fd_set set;
     FD_ZERO(&set);
@@ -2261,7 +2294,8 @@ const char* logarg(const char* arg) {
 void writetocdt(const char* line) {
     logprintf(LOG_NONE, "writetocdt (...)\n", line);
     logdata(LOG_CDT_OUT, line, strlen(line));
-    writelog(STDOUT_FILENO, line, strlen(line));
+    logprintf(LOG_TRACE, "ptyfd is %d\n", gpstate->ptyfd);
+    writelog(gpstate->ptyfd == EOF ? STDOUT_FILENO : gpstate->ptyfd, line, strlen(line));
 }
 
 void cdtprintf(const char* format, ...) {
