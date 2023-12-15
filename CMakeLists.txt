@@ -57,7 +57,7 @@ add_executable(${PROJECT_NAME} ${lldbmi2_sources})
 # Conditional linking and compiler flags
 if(UNLINKED)
     target_compile_definitions(${PROJECT_NAME} PRIVATE UNLINKED)
-    target_link_options(${PROJECT_NAME} PRIVATE -ldl -rdynamic -Wl,--unresolved-symbols=ignore-all)
+    target_link_options(${PROJECT_NAME} PRIVATE -static-libgcc -static-libstdc++ -ldl -rdynamic -Wl,--unresolved-symbols=ignore-all)
 else()
     target_link_libraries(${PROJECT_NAME} PRIVATE ${LLDB_LIBRARY})
 endif()
